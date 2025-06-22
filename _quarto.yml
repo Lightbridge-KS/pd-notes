@@ -1,0 +1,21 @@
+project:
+  type: book
+
+book:
+  title: "Pandas Notes"
+  author: "Kittipos Sirivongrungson"
+  date: today
+  chapters:
+    - index.qmd
+    - "contents/01-datatypes.ipynb"
+    - references.qmd
+
+bibliography: references.bib
+
+format:
+  html:
+    theme:
+      - cosmo
+      - brand
+
+
