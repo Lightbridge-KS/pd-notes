@@ -1,5 +1,6 @@
 # Preface {.unnumbered}
 
-This is a Quarto book.
+::: {.callout-note appearance="default" collapse="false"}
 
-To learn more about Quarto books visit <https://quarto.org/docs/books>.
+This is my notes on Pandas
+:::
