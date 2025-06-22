@@ -24,3 +24,5 @@ format:
       - brand
 
 
+execute:
+  freeze: auto
