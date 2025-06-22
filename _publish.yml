@@ -1,0 +1,4 @@
+- source: project
+  netlify:
+    - id: 662dd34f-0d3f-4bae-8ccc-14fd07917156
+      url: https://pd-notes-lightbridge.netlify.app
