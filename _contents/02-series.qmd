@@ -1,0 +1,348 @@
+# Series Basics
+
+A pandas Series is the fundamental building block of data analysis in pandas, equivalent to R's vectors. While R vectors are foundational data structures, pandas Series are more feature-rich objects that combine the functionality of R vectors with additional index capabilities. Understanding Series is crucial because DataFrames are essentially collections of Series.
+
+## Creating Series
+
+Just like creating vectors in R with `c()`, pandas offers multiple ways to create Series:
+
+```{python}
+import pandas as pd
+import numpy as np
+
+# R: c(10, 20, 30, 40, 50)
+# Pandas: from a list
+numbers = pd.Series([10, 20, 30, 40, 50])
+print(numbers)
+
+# R: c("apple", "banana", "cherry")
+# Pandas: from a list of strings
+fruits = pd.Series(["apple", "banana", "cherry"])
+print(fruits)
+
+# From a NumPy array (more efficient for large data)
+arr = np.array([1.5, 2.5, 3.5, 4.5])
+float_series = pd.Series(arr)
+
+# From a dictionary (automatic index assignment)
+# R: c(a=10, b=20, c=30) creates named vector
+dict_series = pd.Series({"a": 10, "b": 20, "c": 30})
+print(dict_series)
+
+# With explicit index (like R's named vectors)
+# R: setNames(c(10, 20, 30), c("x", "y", "z"))
+named_series = pd.Series([10, 20, 30], index=["x", "y", "z"])
+print(named_series)
+```
+
+## The Index Concept
+
+The biggest difference from R vectors is that every Series has an index. While R has names for vectors, pandas makes the index a core feature:
+
+```{python}
+# Default index (0-based, like Python)
+series = pd.Series([100, 200, 300])
+print("Values:", series.values)  # Like unname() in R
+print("Index:", series.index)
+print()
+
+# Custom index
+grades = pd.Series([85, 92, 78, 95], 
+                   index=["Alice", "Bob", "Charlie", "David"])
+print(grades)
+print()
+
+# Accessing by index (like R's named vector access)
+print("Bob's grade:", grades["Bob"])  # R: grades["Bob"]
+print("Using loc:", grades.loc["Bob"])  # More explicit
+print("Using position:", grades.iloc[1])  # R: grades[2] (R is 1-indexed!)
+```
+
+## Basic Attributes and Methods
+
+Series objects have many useful attributes and methods that go beyond R's vector capabilities:
+
+```{python}
+# Create a sample series
+data = pd.Series([15, 28, 33, 45, 22, 38, 40, 55, 18, 30])
+
+# Basic attributes
+print(f"Length: {len(data)}")          # R: length(data)
+print(f"Shape: {data.shape}")          # Returns tuple (n,)
+print(f"Size: {data.size}")            # Same as length
+print(f"Data type: {data.dtype}")      # R: typeof(data)
+print()
+
+# Basic statistics (like R's summary())
+print(f"Mean: {data.mean()}")          # R: mean(data)
+print(f"Median: {data.median()}")      # R: median(data)
+print(f"Std Dev: {data.std()}")        # R: sd(data)
+print(f"Min: {data.min()}")            # R: min(data)
+print(f"Max: {data.max()}")            # R: max(data)
+print()
+
+# R's summary() equivalent
+print("Describe (like R's summary()):")
+print(data.describe())
+```
+
+## Vectorized Operations
+
+Like R, pandas Series support vectorized operations, making calculations efficient and readable:
+
+```{python}
+# Create series
+s1 = pd.Series([10, 20, 30, 40])
+s2 = pd.Series([1, 2, 3, 4])
+
+# Arithmetic operations (just like R vectors)
+print("Addition:", s1 + s2)          # R: s1 + s2
+print("Multiplication:", s1 * s2)    # R: s1 * s2
+print("Power:", s1 ** 2)             # R: s1^2
+print()
+
+# With scalars
+print("Add 5:", s1 + 5)              # R: s1 + 5
+print("Divide by 10:", s1 / 10)     # R: s1 / 10
+print()
+
+# Mathematical functions
+print("Square root:", np.sqrt(s1))   # R: sqrt(s1)
+print("Log:", np.log(s1))           # R: log(s1)
+```
+
+## Boolean Operations and Filtering
+
+Boolean operations work similarly to R but with some syntax differences:
+
+```{python}
+# Create a series
+temps = pd.Series([65, 72, 68, 75, 62, 78, 70], 
+                  index=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+
+# Boolean comparisons (like R)
+print("Greater than 70:")
+print(temps > 70)                    # R: temps > 70
+print()
+
+# Filtering (subsetting)
+# R: temps[temps > 70]
+print("Days above 70:")
+print(temps[temps > 70])
+print()
+
+# Multiple conditions
+# R: temps[temps > 65 & temps < 75]  # Note: R uses & for vectors
+# Pandas: need parentheses!
+print("Between 65 and 75:")
+print(temps[(temps > 65) & (temps < 75)])
+
+# Using query-like operations
+# The .where() method (different from R's which())
+print("Where > 70 (keeps original index):")
+print(temps.where(temps > 70))  # NaN for False conditions
+```
+
+## String Operations
+
+For string data, pandas provides vectorized string methods through the `.str` accessor:
+
+```{python}
+# String series
+names = pd.Series(["Alice", "bob", "CHARLIE", "  David  ", "Eve"])
+
+# R equivalent using stringr or base R
+print("Uppercase:", names.str.upper())        # R: toupper(names)
+print("Lowercase:", names.str.lower())        # R: tolower(names)
+print("Length:", names.str.len())             # R: nchar(names)
+print("Strip whitespace:", names.str.strip()) # R: trimws(names)
+print()
+
+# Contains pattern (like grepl in R)
+print("Contains 'a' (case-insensitive):")
+print(names.str.contains('a', case=False))    # R: grepl("a", names, ignore.case=TRUE)
+```
+
+## Handling Missing Data
+
+Unlike R's universal `NA`, pandas Series can have different missing value types:
+
+```{python}
+# Series with missing values
+# R: c(1, 2, NA, 4, NA, 6)
+s_missing = pd.Series([1, 2, np.nan, 4, np.nan, 6])
+
+print("Original series:")
+print(s_missing)
+print()
+
+# Check for missing values
+print("Is null:", s_missing.isna())      # R: is.na(s_missing)
+print("Not null:", s_missing.notna())    # R: !is.na(s_missing)
+print()
+
+# Operations with missing values
+print("Sum:", s_missing.sum())           # R: sum(s_missing, na.rm=TRUE)
+print("Mean:", s_missing.mean())         # R: mean(s_missing, na.rm=TRUE)
+print()
+
+# Fill missing values
+print("Fill with 0:", s_missing.fillna(0))           # R: replace_na(s_missing, 0)
+print("Forward fill:", s_missing.fillna(method='ffill'))  # R: na.locf(s_missing)
+print("Drop missing:", s_missing.dropna())           # R: na.omit(s_missing)
+```
+
+## Unique Values and Counting
+
+Working with categorical-like data in Series:
+
+```{python}
+# Series with repeated values
+colors = pd.Series(["red", "blue", "red", "green", "blue", "red", "yellow"])
+
+# Unique values
+print("Unique values:", colors.unique())          # R: unique(colors)
+print("Number of unique:", colors.nunique())      # R: length(unique(colors))
+print()
+
+# Value counts (like R's table())
+print("Value counts:")
+print(colors.value_counts())                      # R: table(colors)
+print()
+
+# As proportions
+print("Proportions:")
+print(colors.value_counts(normalize=True))        # R: prop.table(table(colors))
+```
+
+## Sorting Series
+
+Sorting operations with more control than R's `sort()`:
+
+```{python}
+# Create unsorted series
+values = pd.Series([30, 10, 40, 20, 50], index=["c", "a", "d", "b", "e"])
+
+# Sort by values
+print("Sort by values:")
+print(values.sort_values())              # R: sort(values)
+print()
+
+print("Sort descending:")
+print(values.sort_values(ascending=False))  # R: sort(values, decreasing=TRUE)
+print()
+
+# Sort by index
+print("Sort by index:")
+print(values.sort_index())               # R: values[order(names(values))]
+```
+
+## Applying Functions
+
+Applying custom functions to Series elements:
+
+```{python}
+# Sample series
+nums = pd.Series([1, 4, 9, 16, 25])
+
+# Apply function element-wise
+# R: sapply(nums, function(x) x^0.5)
+print("Square root using apply:")
+print(nums.apply(lambda x: x**0.5))
+print()
+
+# Apply custom function
+def categorize(x):
+    if x < 10:
+        return "small"
+    elif x < 20:
+        return "medium"
+    else:
+        return "large"
+
+print("Categorized:")
+print(nums.apply(categorize))
+
+# Map values (like R's recode)
+mapping = {1: "one", 4: "four", 9: "nine"}
+print("Mapped values:")
+print(nums.map(mapping))
+```
+
+## Series Alignment
+
+One powerful feature of pandas Series is automatic alignment by index:
+
+```{python}
+# Two series with different indices
+s1 = pd.Series([10, 20, 30], index=["a", "b", "c"])
+s2 = pd.Series([1, 2, 3, 4], index=["b", "c", "d", "e"])
+
+print("Series 1:", s1)
+print("Series 2:", s2)
+print()
+
+# Operations align by index automatically
+print("Addition (aligned by index):")
+print(s1 + s2)  # NaN where indices don't match
+
+# R doesn't do this automatically - you'd need to align manually
+```
+
+## Converting to Other Types
+
+Series can be easily converted to other Python/pandas data types:
+
+```{python}
+# Sample series
+s = pd.Series([10, 20, 30], index=["x", "y", "z"])
+
+# To list (like R's as.vector())
+print("To list:", s.tolist())           # R: as.vector(s)
+
+# To NumPy array
+print("To array:", s.values)            # R: as.numeric(s)
+
+# To dictionary
+print("To dict:", s.to_dict())          # R: setNames(as.list(s), names(s))
+
+# To DataFrame
+print("To DataFrame:")
+print(s.to_frame(name="values"))        # R: data.frame(values = s)
+```
+
+## Key Methods Summary
+
+Here's a quick reference comparing R vector operations to pandas Series methods:
+
+| Operation | R | Pandas Series |
+|-----------|---|---------------|
+| Create | `c(1, 2, 3)` | `pd.Series([1, 2, 3])` |
+| Length | `length(x)` | `len(s)` or `s.size` |
+| Sum | `sum(x)` | `s.sum()` |
+| Mean | `mean(x)` | `s.mean()` |
+| Summary | `summary(x)` | `s.describe()` |
+| Unique | `unique(x)` | `s.unique()` |
+| Sort | `sort(x)` | `s.sort_values()` |
+| Missing check | `is.na(x)` | `s.isna()` |
+| Value counts | `table(x)` | `s.value_counts()` |
+| Subset | `x[x > 5]` | `s[s > 5]` |
+| Apply function | `sapply(x, fun)` | `s.apply(fun)` |
+
+## Practical Tips
+
+1. **Index awareness**: Always be mindful of the index - it's what makes Series more powerful than R vectors but can also cause unexpected behavior.
+
+2. **Method chaining**: Unlike R, pandas encourages method chaining:
+   ```{python}
+   result = (s
+            .dropna()
+            .sort_values()
+            .head(10))
+   ```
+
+3. **Copy vs view**: Some operations return views (references) rather than copies. Use `.copy()` when you need a true copy.
+
+4. **Performance**: For large numeric operations, Series are much faster than Python lists but may be slower than R vectors for some operations.
+
+The Series is your workhorse in pandas - master it, and DataFrames become much easier to understand since they're just collections of Series with shared indices.

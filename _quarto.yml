@@ -5,9 +5,14 @@ book:
   title: "Pandas Notes"
   author: "Kittipos Sirivongrungson"
   date: today
+  repo-url: https://github.com/Lightbridge-KS/pd-notes
+  site-url: https://pd-notes-lightbridge.netlify.app
   chapters:
     - index.qmd
-    - "contents/01-datatypes.ipynb"
+    - part: "Basics"
+      chapters:
+      - "contents/01-datatypes.ipynb"
+      - "contents/02-series.ipynb"
     - references.qmd
 
 bibliography: references.bib
