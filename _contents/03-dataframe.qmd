@@ -1,0 +1,449 @@
+# DataFrame Basics
+
+A pandas DataFrame is the primary data structure for data analysis in Python, equivalent to R's data.frame or tibble. While they serve the same purpose, pandas DataFrames have some unique characteristics that make them both more flexible and sometimes more complex than their R counterparts. Understanding these differences will help you leverage the full power of pandas.
+
+## Creating DataFrames
+
+Just like R's `data.frame()` or `tibble()`, pandas offers multiple ways to create DataFrames:
+
+```{python}
+import pandas as pd
+import numpy as np
+
+# From a dictionary (most common, like R's data.frame())
+# R: data.frame(name = c("Alice", "Bob", "Charlie"), 
+#               age = c(25, 30, 35),
+#               score = c(85.5, 92.0, 78.5))
+df_dict = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie'],
+    'age': [25, 30, 35],
+    'score': [85.5, 92.0, 78.5]
+})
+print(df_dict)
+print()
+
+# From a list of lists (with column names)
+# R: data.frame(matrix(data, ncol=3), col.names=c(...))
+df_list = pd.DataFrame(
+    [['Alice', 25, 85.5],
+     ['Bob', 30, 92.0],
+     ['Charlie', 35, 78.5]],
+    columns=['name', 'age', 'score']
+)
+print(df_list)
+print()
+
+# From a NumPy array
+arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+df_array = pd.DataFrame(arr, columns=['A', 'B', 'C'])
+print(df_array)
+```
+
+## Understanding DataFrame Structure
+
+Unlike R's data.frame, pandas DataFrames have both row and column indices:
+
+```{python}
+# Create a DataFrame with custom index
+df = pd.DataFrame({
+    'math': [90, 85, 92, 78],
+    'english': [88, 92, 85, 90],
+    'science': [95, 88, 90, 85]
+}, index=['Alice', 'Bob', 'Charlie', 'David'])
+
+print("DataFrame with named index:")
+print(df)
+print()
+
+# Inspect structure (like R's str())
+print("Info (like R's str()):")
+df.info()
+print()
+
+# Basic attributes
+print(f"Shape: {df.shape}")           # R: dim(df)
+print(f"Columns: {df.columns.tolist()}")  # R: names(df) or colnames(df)
+print(f"Index: {df.index.tolist()}")      # R: rownames(df)
+print(f"Data types:\n{df.dtypes}")        # R: sapply(df, class)
+```
+
+## Basic DataFrame Inspection
+
+Pandas provides several methods to inspect your data, similar to R:
+
+```{python}
+# Create a larger sample DataFrame
+np.random.seed(42)
+df_large = pd.DataFrame({
+    'id': range(1, 101),
+    'age': np.random.randint(18, 65, 100),
+    'salary': np.random.normal(50000, 15000, 100).round(2),
+    'department': np.random.choice(['Sales', 'IT', 'HR', 'Finance'], 100),
+    'performance': np.random.choice(['A', 'B', 'C'], 100)
+})
+
+# View first/last rows
+print("First 5 rows (like R's head()):")
+print(df_large.head())        # R: head(df)
+print()
+
+print("Last 3 rows:")
+print(df_large.tail(3))       # R: tail(df, 3)
+print()
+
+# Summary statistics
+print("Summary statistics (like R's summary()):")
+print(df_large.describe())    # R: summary(df)
+print()
+
+# For categorical columns
+print("Summary including categorical:")
+print(df_large.describe(include='all'))
+```
+
+## Selecting Columns
+
+Column selection in pandas offers more flexibility than R:
+
+```{python}
+# Sample DataFrame
+df = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie', 'David'],
+    'age': [25, 30, 35, 28],
+    'city': ['NYC', 'LA', 'Chicago', 'Houston'],
+    'salary': [70000, 80000, 75000, 72000]
+})
+
+# Single column (returns Series)
+print("Single column (3 ways):")
+print(df['name'])              # R: df$name or df[['name']]
+print(df.name)                 # R: df$name (dot notation)
+print(df.loc[:, 'name'])       # More explicit
+print()
+
+# Multiple columns (returns DataFrame)
+print("Multiple columns:")
+print(df[['name', 'salary']])  # R: df[c('name', 'salary')]
+print()
+
+# Using loc for columns
+print("Using loc:")
+print(df.loc[:, ['name', 'age']])  # R: df[, c('name', 'age')]
+print()
+
+# Column slicing (if columns are ordered)
+print("Column slice:")
+print(df.loc[:, 'name':'city'])    # All columns from 'name' to 'city'
+```
+
+## Selecting Rows
+
+Row selection has multiple approaches, each with specific use cases:
+
+```{python}
+# By integer position (iloc)
+print("Row by position (iloc):")
+print(df.iloc[0])              # R: df[1, ] (R is 1-indexed!)
+print()
+
+print("Multiple rows by position:")
+print(df.iloc[0:2])           # R: df[1:2, ]
+print()
+
+# By index label (loc)
+df_indexed = df.set_index('name')
+print("DataFrame with name as index:")
+print(df_indexed)
+print()
+
+print("Row by label:")
+print(df_indexed.loc['Alice'])  # R: df['Alice', ] if rownames set
+print()
+
+# Boolean indexing
+print("Boolean indexing (age > 28):")
+print(df[df['age'] > 28])      # R: df[df$age > 28, ]
+```
+
+## Selecting Subsets (Rows and Columns)
+
+Combining row and column selection:
+
+```{python}
+# Using loc (label-based)
+print("Subset with loc:")
+print(df.loc[df['age'] > 28, ['name', 'salary']])  
+# R: df[df$age > 28, c('name', 'salary')]
+print()
+
+# Using iloc (position-based)
+print("Subset with iloc:")
+print(df.iloc[0:2, 1:3])       # R: df[1:2, 2:3]
+print()
+
+# Mixed selection
+print("Boolean rows, specific columns:")
+mask = df['city'].isin(['NYC', 'LA'])
+print(df.loc[mask, ['name', 'city', 'salary']])
+# R: df[df$city %in% c('NYC', 'LA'), c('name', 'city', 'salary')]
+```
+
+## Adding and Modifying Columns
+
+Adding new columns is straightforward, similar to R:
+
+```{python}
+# Copy DataFrame
+df_mod = df.copy()
+
+# Add new column (like R's df$new_col <- ...)
+df_mod['bonus'] = df_mod['salary'] * 0.1  # R: df$bonus <- df$salary * 0.1
+print("Added bonus column:")
+print(df_mod)
+print()
+
+# Conditional column
+df_mod['level'] = np.where(df_mod['salary'] > 75000, 'Senior', 'Junior')
+# R: df$level <- ifelse(df$salary > 75000, 'Senior', 'Junior')
+print("Added level column:")
+print(df_mod)
+print()
+
+# Using assign (chainable, like mutate)
+df_mod = df_mod.assign(
+    total_comp=lambda x: x['salary'] + x['bonus'],
+    age_group=lambda x: pd.cut(x['age'], bins=[0, 30, 40, 100], 
+                               labels=['Young', 'Middle', 'Senior'])
+)
+# R: df %>% mutate(total_comp = salary + bonus, ...)
+print("Multiple columns with assign:")
+print(df_mod)
+```
+
+## Deleting Rows and Columns
+
+Removing data from DataFrames:
+
+```{python}
+# Drop columns
+df_dropped = df_mod.drop(columns=['bonus', 'level'])  
+# R: df[, !names(df) %in% c('bonus', 'level')]
+print("After dropping columns:")
+print(df_dropped)
+print()
+
+# Drop rows by index
+df_dropped = df.drop(index=[0, 2])  # Drop first and third rows
+# R: df[-c(1, 3), ]
+print("After dropping rows:")
+print(df_dropped)
+print()
+
+# Drop rows by condition
+df_filtered = df[df['age'] <= 30]  # Keep only age <= 30
+# R: df[df$age <= 30, ]
+print("After filtering:")
+print(df_filtered)
+```
+
+## Sorting DataFrames
+
+Sorting is more flexible than R's `order()`:
+
+```{python}
+# Create sample data
+df_sort = pd.DataFrame({
+    'name': ['Eve', 'Alice', 'Charlie', 'Bob', 'David'],
+    'age': [28, 25, 35, 30, 28],
+    'salary': [72000, 70000, 75000, 80000, 68000]
+})
+
+# Sort by single column
+print("Sort by age:")
+print(df_sort.sort_values('age'))  # R: df[order(df$age), ]
+print()
+
+# Sort by multiple columns
+print("Sort by age, then salary (descending):")
+print(df_sort.sort_values(['age', 'salary'], 
+                         ascending=[True, False]))
+# R: df[order(df$age, -df$salary), ]
+print()
+
+# Sort by index
+print("Sort by index:")
+print(df_sort.sort_index())  # R: df[order(rownames(df)), ]
+```
+
+## Handling Missing Data
+
+DataFrames provide comprehensive missing data handling:
+
+```{python}
+# Create DataFrame with missing values
+df_missing = pd.DataFrame({
+    'A': [1, 2, np.nan, 4],
+    'B': [5, np.nan, np.nan, 8],
+    'C': [9, 10, 11, 12]
+})
+print("DataFrame with NaN:")
+print(df_missing)
+print()
+
+# Check for missing values
+print("Missing values per column:")
+print(df_missing.isna().sum())  # R: colSums(is.na(df))
+print()
+
+# Drop rows with any missing
+print("Drop rows with any NaN:")
+print(df_missing.dropna())  # R: na.omit(df)
+print()
+
+# Drop columns with any missing
+print("Drop columns with any NaN:")
+print(df_missing.dropna(axis=1))  # R: df[, colSums(is.na(df)) == 0]
+print()
+
+# Fill missing values
+print("Fill with specific value:")
+print(df_missing.fillna(0))  # R: replace_na(df, 0)
+```
+
+## Basic Operations
+
+Applying operations across the DataFrame:
+
+```{python}
+# Numeric DataFrame
+df_num = pd.DataFrame({
+    'x': [10, 20, 30, 40],
+    'y': [15, 25, 35, 45],
+    'z': [12, 22, 32, 42]
+})
+
+# Element-wise operations
+print("Add 5 to all values:")
+print(df_num + 5)  # R: df + 5
+print()
+
+# Column-wise operations
+print("Column means:")
+print(df_num.mean())  # R: colMeans(df)
+print()
+
+print("Row sums:")
+print(df_num.sum(axis=1))  # R: rowSums(df)
+print()
+
+# Apply custom function
+print("Apply custom function to each column:")
+print(df_num.apply(lambda x: x.max() - x.min()))  
+# R: apply(df, 2, function(x) max(x) - min(x))
+```
+
+## DataFrame Information Methods
+
+Quick ways to understand your DataFrame:
+
+```{python}
+# Sample DataFrame
+df_info = pd.DataFrame({
+    'int_col': [1, 2, 3, 4, 5],
+    'float_col': [1.1, 2.2, 3.3, 4.4, 5.5],
+    'str_col': ['a', 'b', 'c', 'd', 'e'],
+    'bool_col': [True, False, True, False, True],
+    'cat_col': pd.Categorical(['A', 'B', 'A', 'B', 'C'])
+})
+
+# Memory usage
+print("Memory usage:")
+print(df_info.memory_usage(deep=True))  # R: object.size(df)
+print()
+
+# Get numeric columns only
+print("Numeric columns only:")
+print(df_info.select_dtypes(include='number'))  
+# R: df[sapply(df, is.numeric)]
+print()
+
+# Value counts for all columns
+print("Value counts for non-numeric columns:")
+for col in df_info.select_dtypes(exclude='number').columns:
+    print(f"\n{col}:")
+    print(df_info[col].value_counts())
+# R: lapply(df[sapply(df, is.factor)], table)
+```
+
+## The Power of Index
+
+Understanding the index is crucial for effective pandas use:
+
+```{python}
+# DataFrame with meaningful index
+sales_df = pd.DataFrame({
+    'product': ['A', 'B', 'C', 'A', 'B', 'C'],
+    'quarter': ['Q1', 'Q1', 'Q1', 'Q2', 'Q2', 'Q2'],
+    'sales': [100, 150, 200, 120, 160, 220]
+})
+
+# Set multi-index
+sales_indexed = sales_df.set_index(['quarter', 'product'])
+print("Multi-indexed DataFrame:")
+print(sales_indexed)
+print()
+
+# Access with multi-index
+print("Q1 sales:")
+print(sales_indexed.loc['Q1'])  # All Q1 sales
+print()
+
+# Reset index (back to default)
+print("Reset index:")
+print(sales_indexed.reset_index())  # R: rownames(df) <- NULL
+```
+
+## Key Differences from R data.frames
+
+Here's a summary of key differences:
+
+| Feature | R data.frame | pandas DataFrame |
+|---------|--------------|------------------|
+| Row names | Optional, often numeric | Always has index, can be meaningful |
+| Column access | `df$col` or `df[['col']]` | `df['col']` or `df.col` |
+| Subsetting | `df[rows, cols]` | `df.loc[rows, cols]` or `df.iloc[rows, cols]` |
+| Missing values | `NA` | `NaN`, `None`, `pd.NA` |
+| Column types | Can mix types | Can mix types |
+| Memory | Copy-on-modify | Some operations return views |
+| Method chaining | Limited (needs %>%) | Built-in with dot notation |
+
+## Practical Tips
+
+1. **Always use `.copy()`** when you want a true copy:
+   ```{python}
+   df_new = df.copy()  # R: df_new <- df
+   ```
+
+2. **Prefer `loc` and `iloc`** for explicit selection:
+   ```{python}
+   # Clear and unambiguous
+   df.loc[df['age'] > 30, 'salary']  # Rows where age > 30, salary column
+   ```
+
+3. **Method chaining** for cleaner code:
+   ```{python}
+   result = (df
+            .query('age > 25')
+            .sort_values('salary', ascending=False)
+            .head(10))
+   ```
+
+4. **Use `assign()` for new columns** in chains:
+   ```{python}
+   df_new = (df
+            .assign(age_group=lambda x: pd.cut(x['age'], bins=3))
+            .groupby('age_group')
+            .mean())
+   ```
+
+DataFrames are the workhorses of pandas. Master these basics, and you'll be able to handle most data manipulation tasks. The key is understanding that DataFrames are collections of Series with a shared index, making operations between columns automatic and efficient.

@@ -13,6 +13,7 @@ book:
       chapters:
       - "contents/01-datatypes.ipynb"
       - "contents/02-series.ipynb"
+      - "contents/03-dataframe.ipynb"
     - references.qmd
 
 bibliography: references.bib
