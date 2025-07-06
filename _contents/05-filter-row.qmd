@@ -1,0 +1,468 @@
+# Filtering Rows
+
+Filtering rows is essential for data analysis, allowing you to focus on subsets of data that meet specific criteria. While R's `dplyr::filter()` provides an intuitive interface, pandas offers multiple approaches with different syntax. This chapter will show you how to achieve clean, tidyverse-style row filtering in pandas.
+
+
+## Best Practices Summary
+
+Quick reference for filtering patterns:
+
+| Task | R (dplyr) | Pandas |
+|------|-----------|--------|
+| Simple filter | `filter(df, age > 30)` | `df[df['age'] > 30]` or `df.query('age > 30')` |
+| Multiple AND | `filter(df, age > 30, dept == "IT")` | `df[(df['age'] > 30) & (df['dept'] == 'IT')]` |
+| Multiple OR | `filter(df, dept == "IT" \| dept == "HR")` | `df[(df['dept'] == 'IT') \| (df['dept'] == 'HR')]` |
+| In list | `filter(df, dept %in% c("IT", "HR"))` | `df[df['dept'].isin(['IT', 'HR'])]` |
+| Not in list | `filter(df, !dept %in% c("IT", "HR"))` | `df[~df['dept'].isin(['IT', 'HR'])]` |
+| String contains | `filter(df, str_detect(name, "John"))` | `df[df['name'].str.contains('John')]` |
+| Missing values | `filter(df, !is.na(age))` | `df[df['age'].notna()]` |
+| Between values | `filter(df, between(age, 25, 35))` | `df[df['age'].between(25, 35)]` |
+| Top n | `slice_max(df, salary, n = 5)` | `df.nlargest(5, 'salary')` |
+
+## Tips for Tidyverse Users
+
+1. **Use `.query()` for cleaner syntax**: It's the most dplyr-like method and handles spaces in column names well.
+
+2. **Remember parentheses**: Always wrap individual conditions in parentheses when combining with `&` or `|`.
+
+3. **Use `~` for negation**: Instead of `!`, use `~` to negate boolean conditions.
+
+4. **Chain filters**: You can chain multiple filter operations:
+   ```python
+   (df
+    .query('age > 30')
+    .query('department == "IT"')
+    .query('salary > 70000'))
+   ```
+
+5. **Copy when needed**: Use `.copy()` when you plan to modify the filtered result to avoid warnings.
+
+Row filtering in pandas might seem more verbose than dplyr's `filter()`, but it offers great flexibility. Master these patterns and you'll be filtering data efficiently in no time!
+
+
+## Basic Row Filtering
+
+The fundamental ways to filter rows in pandas:
+
+```python
+import pandas as pd
+import numpy as np
+
+# Create sample DataFrame
+df = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank'],
+    'age': [25, 30, 35, 28, 33, 29],
+    'department': ['Sales', 'IT', 'HR', 'Sales', 'IT', 'HR'],
+    'salary': [70000, 80000, 75000, 72000, 85000, 71000],
+    'performance': [4.2, 4.5, 3.8, 4.0, 4.6, 3.9],
+    'is_manager': [False, True, True, False, True, False]
+})
+
+# Simple filtering with boolean indexing
+# R: filter(df, age > 30)
+print("Age greater than 30:")
+print(df[df['age'] > 30])
+print()
+
+# Using .loc for explicit row filtering
+# R: filter(df, department == "IT")
+print("IT department only:")
+print(df.loc[df['department'] == 'IT'])
+print()
+
+# Using query method (most similar to dplyr)
+# R: filter(df, salary >= 75000)
+print("Using query method:")
+print(df.query('salary >= 75000'))
+```
+
+## Multiple Conditions
+
+Combining multiple filter conditions requires careful syntax:
+
+```python
+# AND conditions - use & (not 'and')
+# R: filter(df, age > 30 & department == "IT")
+print("Age > 30 AND in IT:")
+print(df[(df['age'] > 30) & (df['department'] == 'IT')])
+print()
+
+# OR conditions - use | (not 'or')
+# R: filter(df, department == "Sales" | department == "IT")
+print("Sales OR IT department:")
+print(df[(df['department'] == 'Sales') | (df['department'] == 'IT')])
+print()
+
+# Complex conditions with parentheses
+# R: filter(df, (age > 30 | salary > 80000) & is_manager == TRUE)
+print("Complex condition:")
+print(df[((df['age'] > 30) | (df['salary'] > 80000)) & (df['is_manager'] == True)])
+print()
+
+# Using query for multiple conditions (cleaner syntax)
+print("Same with query:")
+print(df.query('(age > 30 | salary > 80000) & is_manager == True'))
+```
+
+## The Query Method
+
+The `.query()` method provides the most dplyr-like syntax:
+
+```python
+# Basic query examples
+# R: filter(df, age >= 30)
+print("Basic query:")
+print(df.query('age >= 30'))
+print()
+
+# Using variables in query
+min_age = 30
+max_salary = 80000
+# R: filter(df, age >= min_age & salary <= max_salary)
+print("Query with variables:")
+print(df.query('age >= @min_age & salary <= @max_salary'))
+print()
+
+# Column names with spaces (use backticks)
+df_spaces = df.rename(columns={'is_manager': 'is manager'})
+print("Query with spaced column names:")
+print(df_spaces.query('`is manager` == True'))
+print()
+
+# Query with string methods
+# R: filter(df, str_detect(department, "^S"))
+print("Departments starting with 'S':")
+print(df.query('department.str.startswith("S")'))
+```
+
+## Filtering with `isin()`
+
+Checking if values are in a list:
+
+```python
+# Filter where values are in a list
+# R: filter(df, department %in% c("Sales", "HR"))
+departments = ['Sales', 'HR']
+print("Departments in Sales or HR:")
+print(df[df['department'].isin(departments)])
+print()
+
+# Negation with ~
+# R: filter(df, !department %in% c("Sales", "HR"))
+print("Departments NOT in Sales or HR:")
+print(df[~df['department'].isin(departments)])
+print()
+
+# Multiple columns with isin
+ages_of_interest = [25, 30, 35]
+depts_of_interest = ['IT', 'HR']
+print("Specific ages AND departments:")
+print(df[df['age'].isin(ages_of_interest) & df['department'].isin(depts_of_interest)])
+```
+
+## String Filtering
+
+Filtering based on string patterns:
+
+```python
+# Create DataFrame with string data
+df_text = pd.DataFrame({
+    'product': ['Apple iPhone', 'Samsung Galaxy', 'Apple iPad', 'Google Pixel', 'Apple Watch'],
+    'category': ['phone', 'phone', 'tablet', 'phone', 'wearable'],
+    'description': ['Latest iPhone model', 'Android flagship', 'Tablet for work', 'Pure Android experience', 'Health tracker'],
+    'price': [999, 899, 799, 699, 399]
+})
+
+# Contains pattern
+# R: filter(df, str_detect(product, "Apple"))
+print("Products containing 'Apple':")
+print(df_text[df_text['product'].str.contains('Apple')])
+print()
+
+# Case-insensitive search
+# R: filter(df, str_detect(description, regex("android", ignore_case = TRUE)))
+print("Descriptions with 'android' (case-insensitive):")
+print(df_text[df_text['description'].str.contains('android', case=False)])
+print()
+
+# Starts with / Ends with
+# R: filter(df, str_starts(product, "Apple"))
+print("Products starting with 'Apple':")
+print(df_text[df_text['product'].str.startswith('Apple')])
+print()
+
+# Regular expressions
+# R: filter(df, str_detect(product, "Galaxy|Pixel"))
+print("Products matching regex:")
+print(df_text[df_text['product'].str.contains('Galaxy|Pixel', regex=True)])
+```
+
+## Filtering with Missing Values
+
+Handling NaN values in filters:
+
+```python
+# Create DataFrame with missing values
+df_missing = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve'],
+    'age': [25, np.nan, 35, 28, np.nan],
+    'score': [85.5, 92.0, np.nan, 88.0, 95.0],
+    'department': ['Sales', 'IT', None, 'Sales', 'IT']
+})
+
+# Filter out missing values
+# R: filter(df, !is.na(age))
+print("Rows with non-missing age:")
+print(df_missing[df_missing['age'].notna()])
+print()
+
+# Filter for missing values
+# R: filter(df, is.na(score))
+print("Rows with missing score:")
+print(df_missing[df_missing['score'].isna()])
+print()
+
+# Multiple columns - any missing
+# R: filter(df, !is.na(age) & !is.na(score))
+print("Rows with no missing in age or score:")
+print(df_missing[df_missing['age'].notna() & df_missing['score'].notna()])
+print()
+
+# Using dropna for complete cases
+# R: df %>% drop_na()
+print("Complete cases only:")
+print(df_missing.dropna())
+```
+
+## Filtering by Position
+
+Sometimes you need to filter by row position:
+
+```python
+# Filter first n rows
+# R: slice_head(df, n = 3)
+print("First 3 rows:")
+print(df.head(3))
+print()
+
+# Filter last n rows
+# R: slice_tail(df, n = 2)
+print("Last 2 rows:")
+print(df.tail(2))
+print()
+
+# Filter specific rows by position
+# R: slice(df, 2:4)
+print("Rows 2 to 4 (0-indexed in pandas):")
+print(df.iloc[1:4])  # Remember: Python is 0-indexed!
+print()
+
+# Filter by position with condition
+# R: slice_max(df, salary, n = 3)
+print("Top 3 by salary:")
+print(df.nlargest(3, 'salary'))
+print()
+
+# R: slice_min(df, age, n = 2)
+print("Youngest 2 employees:")
+print(df.nsmallest(2, 'age'))
+```
+
+## Filtering with Functions
+
+Using functions for more complex filtering:
+
+```python
+# Custom function for filtering
+def is_high_performer(row):
+    """High performer: performance > 4.0 and (manager or salary > 75000)"""
+    return row['performance'] > 4.0 and (row['is_manager'] or row['salary'] > 75000)
+
+# Apply function row-wise
+# R: filter(df, map_lgl(1:n(), ~ is_high_performer(.x)))
+print("High performers:")
+print(df[df.apply(is_high_performer, axis=1)])
+print()
+
+# Lambda function for quick filters
+# R: filter(df, between(age, 28, 32))
+print("Age between 28 and 32:")
+print(df[df['age'].apply(lambda x: 28 <= x <= 32)])
+print()
+
+# More complex lambda
+print("Name length > 4 characters:")
+print(df[df['name'].apply(lambda x: len(x) > 4)])
+```
+
+## Filtering in Method Chains
+
+Integrating filters into pandas method chains:
+
+```python
+# Create larger dataset
+np.random.seed(42)
+df_large = pd.DataFrame({
+    'employee_id': range(1000, 1050),
+    'age': np.random.randint(22, 60, 50),
+    'department': np.random.choice(['Sales', 'IT', 'HR', 'Finance'], 50),
+    'salary': np.random.randint(50000, 120000, 50),
+    'years_exp': np.random.randint(0, 20, 50),
+    'performance': np.random.uniform(2.5, 5.0, 50).round(1)
+})
+
+# Chain with multiple filters
+# R: df %>% 
+#     filter(department %in% c("IT", "Finance")) %>%
+#     filter(salary > 70000) %>%
+#     arrange(desc(performance))
+result = (df_large
+          .query('department in ["IT", "Finance"]')
+          .query('salary > 70000')
+          .sort_values('performance', ascending=False)
+          .head(10))
+print("Chained filtering:")
+print(result)
+print()
+
+# Alternative using boolean indexing in chain
+result2 = (df_large[df_large['department'].isin(['IT', 'Finance'])]
+           [lambda x: x['salary'] > 70000]
+           .sort_values('performance', ascending=False)
+           .head(10))
+print("Alternative chaining:")
+print(result2)
+```
+
+## Advanced Filtering Patterns
+
+Some advanced filtering techniques:
+
+```python
+# Filter based on group statistics
+# R: df %>% group_by(department) %>% filter(salary > mean(salary))
+dept_avg_salary = df.groupby('department')['salary'].transform('mean')
+print("Employees earning above department average:")
+print(df[df['salary'] > dept_avg_salary])
+print()
+
+# Cumulative filtering
+# Keep rows until cumulative sum exceeds threshold
+df_cumsum = pd.DataFrame({
+    'date': pd.date_range('2024-01-01', periods=10),
+    'sales': [100, 150, 200, 120, 180, 250, 190, 160, 220, 200]
+})
+df_cumsum['cumulative_sales'] = df_cumsum['sales'].cumsum()
+print("Sales until cumulative reaches 1000:")
+print(df_cumsum[df_cumsum['cumulative_sales'] <= 1000])
+print()
+
+# Window-based filtering
+# Filter where value is above rolling average
+df_rolling = df_cumsum.copy()
+df_rolling['rolling_avg'] = df_rolling['sales'].rolling(window=3, center=True).mean()
+print("Days where sales exceed 3-day rolling average:")
+print(df_rolling[df_rolling['sales'] > df_rolling['rolling_avg']].dropna())
+```
+
+## Creating Tidyverse-Style Filter Functions
+
+Make filtering more dplyr-like with helper functions:
+
+```python
+def filter_df(df, *conditions):
+    """Filter DataFrame with multiple conditions"""
+    if len(conditions) == 1:
+        return df[conditions[0]]
+    
+    # Combine multiple conditions with &
+    combined = conditions[0]
+    for condition in conditions[1:]:
+        combined = combined & condition
+    
+    return df[combined]
+
+def between(series, low, high):
+    """Check if values are between low and high (inclusive)"""
+    return (series >= low) & (series <= high)
+
+def not_na(series):
+    """Check for non-missing values"""
+    return series.notna()
+
+# Usage examples
+print("Using filter_df helper:")
+print(filter_df(df, 
+                df['age'] > 30,
+                df['department'] == 'IT'))
+print()
+
+print("Using between helper:")
+print(df[between(df['age'], 28, 32)])
+print()
+
+print("Combining helpers:")
+print(filter_df(df,
+                between(df['salary'], 70000, 80000),
+                not_na(df['performance'])))
+```
+
+## Performance Comparison
+
+Different filtering methods have different performance characteristics:
+
+```python
+# Create large DataFrame
+large_df = pd.DataFrame({
+    'A': np.random.randn(100000),
+    'B': np.random.randn(100000),
+    'C': np.random.choice(['X', 'Y', 'Z'], 100000)
+})
+
+import time
+
+# Method 1: Boolean indexing
+start = time.time()
+for _ in range(100):
+    _ = large_df[large_df['A'] > 0]
+print(f"Boolean indexing: {time.time() - start:.4f} seconds")
+
+# Method 2: Query
+start = time.time()
+for _ in range(100):
+    _ = large_df.query('A > 0')
+print(f"Query method: {time.time() - start:.4f} seconds")
+
+# Method 3: loc
+start = time.time()
+for _ in range(100):
+    _ = large_df.loc[large_df['A'] > 0]
+print(f"loc method: {time.time() - start:.4f} seconds")
+```
+
+## Common Pitfalls and Solutions
+
+Avoid these common mistakes when filtering:
+
+```python
+# Pitfall 1: Using 'and' / 'or' instead of & / |
+# Wrong: df[df['age'] > 30 and df['salary'] > 70000]  # This will error!
+# Right:
+print("Correct AND syntax:")
+print(df[(df['age'] > 30) & (df['salary'] > 70000)])
+print()
+
+# Pitfall 2: Forgetting parentheses with multiple conditions
+# Wrong: df[df['age'] > 30 & df['salary'] > 70000]  # Operator precedence issue
+# Right: Always use parentheses
+
+# Pitfall 3: Modifying filtered DataFrame
+# Be careful with SettingWithCopyWarning
+filtered = df[df['age'] > 30]
+# Better to use .copy() if you plan to modify
+filtered_copy = df[df['age'] > 30].copy()
+filtered_copy['new_col'] = 'Senior'
+print("Safe modification:")
+print(filtered_copy)
+```
+

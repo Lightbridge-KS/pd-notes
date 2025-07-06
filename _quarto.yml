@@ -14,6 +14,8 @@ book:
       - "contents/01-datatypes.ipynb"
       - "contents/02-series.ipynb"
       - "contents/03-dataframe.ipynb"
+      - "contents/04-select-col.ipynb"
+      - "contents/05-filter-row.ipynb"
     - references.qmd
 
 bibliography: references.bib
