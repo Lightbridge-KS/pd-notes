@@ -1,0 +1,453 @@
+# Transforming Columns
+
+Creating and transforming columns is at the heart of data manipulation. While R's `dplyr::mutate()` provides an elegant interface for column operations, pandas offers multiple approaches that can be equally powerful once you understand the patterns. This chapter will show you how to achieve tidyverse-style column transformations in pandas.
+
+
+## Best Practices Summary
+
+Quick reference for column creation patterns:
+
+| Task | R (dplyr) | Pandas |
+|------|-----------|--------|
+| Single column | `mutate(df, z = x + y)` | `df['z'] = df['x'] + df['y']` or `df.assign(z = df['x'] + df['y'])` |
+| Multiple columns | `mutate(df, z = x + y, w = x * y)` | `df.assign(z = df['x'] + df['y'], w = df['x'] * df['y'])` |
+| Conditional | `mutate(df, cat = ifelse(x > 0, "pos", "neg"))` | `df.assign(cat = np.where(df['x'] > 0, 'pos', 'neg'))` |
+| Case when | `mutate(df, cat = case_when(...))` | `df.assign(cat = np.select(conditions, choices))` |
+| Apply function | `mutate(df, z = map_dbl(x, custom_func))` | `df.assign(z = df['x'].apply(custom_func))` |
+| Group transform | `group_by(df, g) %>% mutate(mean_x = mean(x))` | `df.assign(mean_x = df.groupby('g')['x'].transform('mean'))` |
+| Across columns | `mutate(df, across(where(is.numeric), ~ . * 2))` | Use loop or dictionary comprehension |
+
+## Tips for Tidyverse Users
+
+1. **Prefer `assign()` for chains**: It's the most mutate-like method and enables clean chaining.
+
+2. **Use lambda in assign()**: This allows you to reference columns created in the same assign call.
+
+3. **Remember `np.where()` for ifelse**: It's the pandas equivalent of R's `ifelse()`.
+
+4. **Group transforms are powerful**: Use `.transform()` to broadcast group statistics back to original DataFrame.
+
+5. **Chain assignments**: You can chain multiple assign calls for complex transformations:
+   ```python
+   result = (df
+            .assign(total = lambda x: x['a'] + x['b'])
+            .assign(pct = lambda x: x['a'] / x['total'] * 100))
+   ```
+
+Creating and transforming columns in pandas is highly flexible. While the syntax differs from dplyr's `mutate()`, the `assign()` method provides a similar, chainable interface that will feel familiar to tidyverse users.
+
+## Basic Column Creation
+
+The fundamental ways to create new columns in pandas:
+
+```python
+import pandas as pd
+import numpy as np
+
+# Create sample DataFrame
+df = pd.DataFrame({
+    'first_name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve'],
+    'last_name': ['Smith', 'Jones', 'Brown', 'Davis', 'Wilson'],
+    'hours_worked': [40, 45, 38, 42, 50],
+    'hourly_rate': [50, 55, 48, 52, 60],
+    'department': ['Sales', 'IT', 'HR', 'Sales', 'IT']
+})
+
+# Simple column creation
+# R: mutate(df, total_pay = hours_worked * hourly_rate)
+df['total_pay'] = df['hours_worked'] * df['hourly_rate']
+df
+```
+
+```python
+# Multiple columns at once
+# R: mutate(df, 
+#           overtime_hours = pmax(hours_worked - 40, 0),
+#           overtime_pay = overtime_hours * hourly_rate * 1.5)
+df['overtime_hours'] = np.maximum(df['hours_worked'] - 40, 0)
+df['overtime_pay'] = df['overtime_hours'] * df['hourly_rate'] * 1.5
+df
+```
+
+## Using `assign()` for Method Chaining
+
+The `assign()` method is pandas' equivalent to `mutate()` and enables clean method chaining:
+
+```python
+# Reset to original DataFrame
+df = pd.DataFrame({
+    'first_name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve'],
+    'last_name': ['Smith', 'Jones', 'Brown', 'Davis', 'Wilson'],
+    'hours_worked': [40, 45, 38, 42, 50],
+    'hourly_rate': [50, 55, 48, 52, 60],
+    'department': ['Sales', 'IT', 'HR', 'Sales', 'IT']
+})
+
+# Using assign (most similar to mutate)
+# R: df %>% 
+#     mutate(total_pay = hours_worked * hourly_rate,
+#            overtime_hours = pmax(hours_worked - 40, 0))
+df_transformed = df.assign(
+    total_pay = df['hours_worked'] * df['hourly_rate'],
+    overtime_hours = lambda x: np.maximum(x['hours_worked'] - 40, 0)
+)
+df_transformed
+```
+
+```python
+# Chaining multiple assigns
+# R: df %>%
+#     mutate(total_pay = hours_worked * hourly_rate) %>%
+#     mutate(overtime_hours = pmax(hours_worked - 40, 0)) %>%
+#     mutate(overtime_pay = overtime_hours * hourly_rate * 1.5)
+df_chained = (df
+    .assign(total_pay = lambda x: x['hours_worked'] * x['hourly_rate'])
+    .assign(overtime_hours = lambda x: np.maximum(x['hours_worked'] - 40, 0))
+    .assign(overtime_pay = lambda x: x['overtime_hours'] * x['hourly_rate'] * 1.5)
+)
+df_chained
+```
+
+## Conditional Transformations
+
+Creating columns based on conditions:
+
+```python
+# Using np.where (like ifelse in R)
+# R: mutate(df, category = ifelse(total_pay > 2500, "High", "Standard"))
+df_transformed = df.assign(
+    total_pay = lambda x: x['hours_worked'] * x['hourly_rate'],
+    pay_category = lambda x: np.where(x['total_pay'] > 2500, 'High', 'Standard')
+)
+df_transformed
+```
+
+```python
+# Multiple conditions with np.select
+# R: mutate(df, level = case_when(
+#     hours_worked < 40 ~ "Part-time",
+#     hours_worked == 40 ~ "Standard",
+#     hours_worked > 40 ~ "Overtime"
+# ))
+conditions = [
+    df['hours_worked'] < 40,
+    df['hours_worked'] == 40,
+    df['hours_worked'] > 40
+]
+choices = ['Part-time', 'Standard', 'Overtime']
+
+df_transformed = df.assign(
+    work_level = np.select(conditions, choices)
+)
+df_transformed
+```
+
+```python
+# Using pd.cut for binning
+# R: mutate(df, age_group = cut(age, breaks = c(0, 30, 50, 100), 
+#                                labels = c("Young", "Middle", "Senior")))
+df_ages = df.assign(
+    age = [25, 35, 42, 28, 55],  # Adding age column for example
+    age_group = lambda x: pd.cut(x['age'], 
+                                 bins=[0, 30, 50, 100], 
+                                 labels=['Young', 'Middle', 'Senior'])
+)
+df_ages
+```
+
+## String Transformations
+
+Working with text columns:
+
+```python
+# String operations
+# R: mutate(df, 
+#           full_name = paste(first_name, last_name),
+#           email = paste0(tolower(first_name), "@company.com"))
+df_text = df.assign(
+    full_name = df['first_name'] + ' ' + df['last_name'],
+    email = df['first_name'].str.lower() + '@company.com',
+    initials = df['first_name'].str[0] + df['last_name'].str[0]
+)
+df_text[['first_name', 'last_name', 'full_name', 'email', 'initials']]
+```
+
+```python
+# More complex string operations
+# R: mutate(df,
+#           name_length = nchar(first_name),
+#           name_upper = toupper(first_name),
+#           dept_abbrev = substr(department, 1, 2))
+df_text2 = df.assign(
+    name_length = df['first_name'].str.len(),
+    name_upper = df['first_name'].str.upper(),
+    dept_abbrev = df['department'].str[:2],
+    contains_e = df['first_name'].str.contains('e', case=False)
+)
+df_text2[['first_name', 'name_length', 'name_upper', 'dept_abbrev', 'contains_e']]
+```
+
+## Date and Time Transformations
+
+Working with datetime columns:
+
+```python
+# Create DataFrame with dates
+df_dates = pd.DataFrame({
+    'employee': ['Alice', 'Bob', 'Charlie', 'David'],
+    'start_date': pd.to_datetime(['2020-01-15', '2019-06-01', '2021-03-20', '2020-09-10']),
+    'birth_date': pd.to_datetime(['1990-05-15', '1988-12-01', '1992-03-20', '1991-09-10'])
+})
+
+# Extract date components
+# R: mutate(df,
+#           start_year = year(start_date),
+#           start_month = month(start_date),
+#           start_day = day(start_date))
+df_dates_transformed = df_dates.assign(
+    start_year = lambda x: x['start_date'].dt.year,
+    start_month = lambda x: x['start_date'].dt.month,
+    start_day = lambda x: x['start_date'].dt.day,
+    start_quarter = lambda x: x['start_date'].dt.quarter,
+    years_employed = lambda x: (pd.Timestamp.now() - x['start_date']).dt.days / 365.25,
+    age = lambda x: (pd.Timestamp.now() - x['birth_date']).dt.days / 365.25
+)
+df_dates_transformed.round(1)
+```
+
+## Applying Functions
+
+Using custom functions for transformations:
+
+```python
+# Define custom functions
+def categorize_salary(total_pay):
+    if total_pay < 2000:
+        return 'Low'
+    elif total_pay < 3000:
+        return 'Medium'
+    else:
+        return 'High'
+
+def calculate_bonus(row):
+    base_bonus = row['total_pay'] * 0.1
+    if row['department'] == 'Sales':
+        return base_bonus * 1.5
+    elif row['department'] == 'IT':
+        return base_bonus * 1.2
+    else:
+        return base_bonus
+
+# Apply functions
+# R: mutate(df, salary_category = map_chr(total_pay, categorize_salary))
+df_with_pay = df.assign(
+    total_pay = lambda x: x['hours_worked'] * x['hourly_rate']
+)
+
+df_functions = df_with_pay.assign(
+    salary_category = lambda x: x['total_pay'].apply(categorize_salary),
+    bonus = lambda x: x.apply(calculate_bonus, axis=1)
+)
+df_functions
+```
+
+## Working with Groups
+
+Creating columns based on group statistics:
+
+```python
+# Group-based transformations
+# R: df %>% 
+#     group_by(department) %>%
+#     mutate(dept_avg_hours = mean(hours_worked),
+#            hours_vs_dept_avg = hours_worked - dept_avg_hours)
+df_grouped = df.assign(
+    dept_avg_hours = df.groupby('department')['hours_worked'].transform('mean'),
+    hours_vs_dept_avg = lambda x: x['hours_worked'] - x['dept_avg_hours'],
+    dept_rank = lambda x: x.groupby('department')['hourly_rate'].rank(ascending=False)
+)
+df_grouped
+```
+
+```python
+# Cumulative operations within groups
+# R: df %>% 
+#     arrange(department, hourly_rate) %>%
+#     group_by(department) %>%
+#     mutate(cumsum_hours = cumsum(hours_worked))
+df_cumulative = (df
+    .sort_values(['department', 'hourly_rate'])
+    .assign(cumsum_hours = lambda x: x.groupby('department')['hours_worked'].cumsum())
+    .assign(pct_of_dept_hours = lambda x: x['hours_worked'] / x.groupby('department')['hours_worked'].transform('sum') * 100)
+)
+df_cumulative.round(1)
+```
+
+## Multiple Column Operations
+
+Operating on multiple columns at once:
+
+```python
+# Create DataFrame with multiple numeric columns
+df_multi = pd.DataFrame({
+    'product': ['A', 'B', 'C', 'D', 'E'],
+    'price_jan': [100, 150, 200, 120, 180],
+    'price_feb': [105, 145, 210, 125, 175],
+    'price_mar': [110, 155, 205, 130, 185],
+    'cost': [60, 90, 120, 70, 100]
+})
+
+# Calculate multiple new columns
+# R: mutate(df, across(starts_with("price"), ~ . - cost, .names = "profit_{.col}"))
+price_cols = df_multi.filter(like='price').columns
+for col in price_cols:
+    df_multi[f'profit_{col}'] = df_multi[col] - df_multi['cost']
+
+df_multi
+```
+
+```python
+# More elegant approach using assign with dictionary comprehension
+df_multi2 = df_multi.assign(**{
+    f'margin_{col}': lambda x, col=col: (x[col] - x['cost']) / x[col] * 100
+    for col in price_cols
+})
+df_multi2.round(1)
+```
+
+## Window Functions
+
+Creating columns with window calculations:
+
+```python
+# Create time series data
+df_window = pd.DataFrame({
+    'date': pd.date_range('2024-01-01', periods=10),
+    'sales': [100, 120, 115, 130, 125, 140, 135, 150, 145, 160]
+})
+
+# Rolling calculations
+# R: mutate(df, 
+#           rolling_mean = rollmean(sales, k = 3, fill = NA),
+#           rolling_max = rollmax(sales, k = 3, fill = NA))
+df_window_calc = df_window.assign(
+    rolling_mean_3d = lambda x: x['sales'].rolling(window=3, center=True).mean(),
+    rolling_max_3d = lambda x: x['sales'].rolling(window=3).max(),
+    expanding_mean = lambda x: x['sales'].expanding().mean(),
+    pct_change = lambda x: x['sales'].pct_change() * 100
+)
+df_window_calc.round(1)
+```
+
+## Advanced Transformations
+
+Complex transformations using multiple techniques:
+
+```python
+# Create a more complex dataset
+np.random.seed(42)
+df_advanced = pd.DataFrame({
+    'customer_id': range(1001, 1011),
+    'purchase_date': pd.date_range('2024-01-01', periods=10),
+    'amount': np.random.randint(50, 500, 10),
+    'category': np.random.choice(['Electronics', 'Clothing', 'Food'], 10),
+    'payment_method': np.random.choice(['Credit', 'Debit', 'Cash'], 10)
+})
+
+# Complex transformations
+df_result = (df_advanced
+    .assign(
+        # Date features
+        purchase_month = lambda x: x['purchase_date'].dt.to_period('M'),
+        day_of_week = lambda x: x['purchase_date'].dt.day_name(),
+        is_weekend = lambda x: x['purchase_date'].dt.dayofweek.isin([5, 6]),
+        
+        # Amount features
+        amount_category = lambda x: pd.qcut(x['amount'], q=3, labels=['Low', 'Medium', 'High']),
+        log_amount = lambda x: np.log(x['amount']),
+        
+        # Running calculations
+        cumulative_amount = lambda x: x['amount'].cumsum(),
+        running_avg = lambda x: x['amount'].expanding().mean(),
+        
+        # Conditional features
+        discount_eligible = lambda x: (x['amount'] > 200) & (x['payment_method'] == 'Credit'),
+        discount_amount = lambda x: np.where(x['discount_eligible'], x['amount'] * 0.1, 0)
+    )
+    .assign(
+        # Features dependent on previous calculations
+        final_amount = lambda x: x['amount'] - x['discount_amount'],
+        discount_pct = lambda x: (x['discount_amount'] / x['amount'] * 100).round(1)
+    )
+)
+
+df_result
+```
+
+## Creating Helper Functions
+
+Make column creation more tidyverse-like:
+
+```python
+def mutate(df, **kwargs):
+    """Add or modify columns using keyword arguments"""
+    return df.assign(**kwargs)
+
+def transmute(df, **kwargs):
+    """Create new DataFrame with only specified columns"""
+    return pd.DataFrame(kwargs)
+
+# Usage examples
+df_example = pd.DataFrame({
+    'x': [1, 2, 3, 4, 5],
+    'y': [2, 4, 6, 8, 10]
+})
+
+# Using mutate helper
+df_mutated = mutate(df_example,
+    z = lambda df: df['x'] + df['y'],
+    x_squared = lambda df: df['x'] ** 2,
+    ratio = lambda df: df['y'] / df['x']
+)
+df_mutated
+```
+
+```python
+# Using transmute helper (only keeps new columns)
+df_transmuted = transmute(df_example,
+    sum_xy = df_example['x'] + df_example['y'],
+    product_xy = df_example['x'] * df_example['y'],
+    mean_xy = (df_example['x'] + df_example['y']) / 2
+)
+df_transmuted
+```
+
+## Performance Tips
+
+Efficient column creation strategies:
+
+```python
+# Create large DataFrame for performance testing
+large_df = pd.DataFrame({
+    'A': np.random.randn(100000),
+    'B': np.random.randn(100000),
+    'C': np.random.choice(['X', 'Y', 'Z'], 100000)
+})
+
+import time
+
+# Method 1: Direct assignment (fastest for single column)
+start = time.time()
+large_df['D'] = large_df['A'] + large_df['B']
+print(f"Direct assignment: {time.time() - start:.4f} seconds")
+
+# Method 2: assign() method
+start = time.time()
+large_df = large_df.assign(E = lambda x: x['A'] * x['B'])
+print(f"Assign method: {time.time() - start:.4f} seconds")
+
+# Method 3: eval() for complex expressions (memory efficient)
+start = time.time()
+large_df['F'] = large_df.eval('A + B * 2')
+print(f"Eval method: {time.time() - start:.4f} seconds")
+```

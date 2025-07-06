@@ -16,6 +16,7 @@ book:
       - "contents/03-dataframe.ipynb"
       - "contents/04-select-col.ipynb"
       - "contents/05-filter-row.ipynb"
+      - "contents/06-transform.ipynb"
     - references.qmd
 
 bibliography: references.bib
