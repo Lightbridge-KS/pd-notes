@@ -23,6 +23,9 @@ book:
       - "contents/08-sorting.ipynb"
       - "contents/09-pivot.ipynb"
       - "contents/10-join.ipynb"
+    - part: "Advanced Operation"
+      chapters: 
+      - "contents/11-string-and-regex.ipynb"
     - references.qmd
 
 bibliography: references.bib
@@ -30,8 +33,11 @@ bibliography: references.bib
 format:
   html:
     theme:
-      - cosmo
-      - brand
+     light: 
+       - cosmo
+       - brand
+     dark:
+       - darkly 
 
 
 execute:

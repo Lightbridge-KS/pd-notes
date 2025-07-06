@@ -1,0 +1,283 @@
+# Python & Pandas String/Regex Operations Cheatsheet
+
+
+## Comparison Table: Python vs Pandas String Operations
+
+| Operation | Python Syntax | Pandas Syntax | Key Differences |
+|-----------|---------------|---------------|-----------------|
+| **Case Conversion** | `text.lower()` | `df['col'].str.lower()` | Pandas works on entire Series; Python on single string |
+| **String Length** | `len(text)` | `df['col'].str.len()` | Pandas returns Series; Python returns integer |
+| **Substring Check** | `"abc" in text` | `df['col'].str.contains("abc")` | Pandas returns boolean Series; Python returns boolean |
+| **Start/End Check** | `text.startswith("ab")` | `df['col'].str.startswith("ab")` | Pandas vectorized across all rows |
+| **Replace Text** | `text.replace("old", "new")` | `df['col'].str.replace("old", "new")` | Pandas has `regex=True` parameter |
+| **Split String** | `text.split(",")` | `df['col'].str.split(",")` | Pandas can use `expand=True` for separate columns |
+| **Extract Substring** | `text[0:5]` | `df['col'].str[0:5]` or `df['col'].str.slice(0,5)` | Pandas has both indexing and slice method |
+| **Regex Search** | `re.search(pattern, text)` | `df['col'].str.extract(pattern)` | Pandas extracts to new columns automatically |
+| **Regex Find All** | `re.findall(pattern, text)` | `df['col'].str.findall(pattern)` | Pandas returns list in each cell |
+| **Regex Replace** | `re.sub(pattern, repl, text)` | `df['col'].str.replace(pattern, repl, regex=True)` | Pandas requires `regex=True` flag |
+| **String Concatenation** | `str1 + str2` | `df['col1'].str.cat(df['col2'])` | Pandas has special concatenation method |
+| **Null Handling** | Manual checking required | Automatic (skips NaN values) | Pandas handles missing data gracefully |
+| **Performance** | Single string operation | Vectorized operation | Pandas much faster for multiple strings |
+| **Return Type** | String or Match object | Series or DataFrame | Pandas preserves DataFrame structure |
+
+## When to Use Each Approach
+
+### Use Python String Methods When:
+
+- Working with individual strings or small datasets
+- Need maximum performance for single string operations  
+- Writing functions that process one string at a time
+- Working outside of pandas DataFrame context
+
+### Use Pandas String Methods When:
+
+- Working with DataFrame columns containing text
+- Need to apply operations to many strings at once
+- Want to maintain DataFrame structure in results
+- Need automatic handling of missing values (NaN)
+- Performing data cleaning and preprocessing tasks
+
+## Python Built-in String Operations
+
+### Basic String Methods
+
+```python
+# String case operations
+text = "Hello World"
+text.lower()           # "hello world"
+text.upper()           # "HELLO WORLD"  
+text.title()           # "Hello World"
+text.capitalize()      # "Hello world"
+text.swapcase()        # "hELLO wORLD"
+
+# String checking methods
+text.startswith("Hello")    # True
+text.endswith("World")      # True
+text.isdigit()             # False
+text.isalpha()             # False (contains space)
+text.isalnum()             # False (contains space)
+text.isspace()             # False
+
+# String searching and counting
+text.find("World")         # 6 (index of first occurrence)
+text.rfind("l")           # 9 (index of last occurrence)
+text.index("World")        # 6 (raises error if not found)
+text.count("l")           # 3
+
+# String modification
+text.replace("World", "Python")     # "Hello Python"
+text.strip()                        # Remove whitespace from both ends
+text.lstrip()                       # Remove from left
+text.rstrip()                       # Remove from right
+text.strip("Hd")                    # Remove specific characters
+
+# String splitting and joining
+text.split()                        # ["Hello", "World"]
+text.split("l")                     # ["He", "", "o Wor", "d"]
+"-".join(["Hello", "World"])        # "Hello-World"
+
+# String formatting
+name, age = "John", 25
+f"Name: {name}, Age: {age}"         # "Name: John, Age: 25"
+"Name: {}, Age: {}".format(name, age)  # "Name: John, Age: 25"
+```
+
+### String Slicing and Indexing
+
+```python
+text = "Hello World"
+text[0]        # "H"
+text[-1]       # "d"
+text[0:5]      # "Hello"
+text[6:]       # "World"
+text[::-1]     # "dlroW olleH" (reverse)
+text[::2]      # "HloWrd" (every 2nd character)
+```
+
+## Pandas String Operations (`.str` accessor)
+
+### Basic Operations
+
+```python
+import pandas as pd
+
+# Create sample DataFrame
+df = pd.DataFrame({
+    'name': ['John Doe', 'jane smith', 'Bob Johnson'],
+    'email': ['john@email.com', 'jane@gmail.com', 'bob@yahoo.com']
+})
+
+# Case operations
+df['name'].str.lower()           # Convert to lowercase
+df['name'].str.upper()           # Convert to uppercase
+df['name'].str.title()           # Title case
+df['name'].str.capitalize()      # Capitalize first letter
+
+# String checking
+df['name'].str.startswith('J')   # Boolean series
+df['email'].str.endswith('.com') # Boolean series
+df['name'].str.isdigit()         # Check if all digits
+df['name'].str.isalpha()         # Check if all alphabetic
+
+# String length and counting
+df['name'].str.len()             # Length of each string
+df['name'].str.count('o')        # Count occurrences of 'o'
+
+# String modification
+df['name'].str.replace(' ', '_')              # Replace spaces with underscores
+df['name'].str.strip()                        # Remove whitespace
+df['email'].str.slice(0, 4)                  # Extract substring
+df['email'].str.slice_replace(0, 4, 'USER')  # Replace substring
+
+# String splitting
+df['name'].str.split()                        # Split into list
+df['name'].str.split(' ', expand=True)        # Split into separate columns
+df['email'].str.split('@', expand=True)       # Split email
+
+# String concatenation
+df['name'].str.cat(df['email'], sep=' - ')    # Concatenate columns
+```
+
+### Advanced Pandas String Operations
+
+```python
+# Extract parts of strings
+df['email'].str.extract(r'([^@]+)@([^.]+)')   # Extract username and domain
+df['name'].str.extract(r'(\w+)\s+(\w+)')      # Extract first and last name
+
+# String contains (boolean indexing)
+df[df['name'].str.contains('John')]           # Filter rows containing 'John'
+df[df['email'].str.contains('gmail|yahoo')]   # Multiple patterns
+
+# String indexing and slicing
+df['name'].str[0]                             # First character
+df['name'].str[-1]                            # Last character  
+df['email'].str[0:4]                          # First 4 characters
+
+# Padding and alignment
+df['name'].str.pad(width=15, side='left', fillchar='*')   # Left pad
+df['name'].str.center(15, fillchar='-')                   # Center align
+df['name'].str.ljust(15, fillchar='.')                    # Left justify
+df['name'].str.rjust(15, fillchar='.')                    # Right justify
+```
+
+## Regex Operations
+
+### Python `re` Module
+
+```python
+import re
+
+text = "Contact: john@email.com or call 123-456-7890"
+
+# Basic regex functions
+re.search(r'\d{3}-\d{3}-\d{4}', text)        # Find first match
+re.findall(r'\w+@\w+\.\w+', text)           # Find all matches
+re.sub(r'\d{3}-\d{3}-\d{4}', 'XXX-XXX-XXXX', text)  # Replace matches
+re.split(r'\s+', text)                       # Split by whitespace
+
+# Compiled patterns (more efficient for repeated use)
+pattern = re.compile(r'\w+@\w+\.\w+')
+pattern.search(text)
+pattern.findall(text)
+
+# Groups and capturing
+match = re.search(r'(\w+)@(\w+)\.(\w+)', text)
+if match:
+    match.group(0)  # Full match
+    match.group(1)  # First group (username)
+    match.group(2)  # Second group (domain)
+    match.groups()  # All groups as tuple
+```
+
+### Pandas Regex Operations
+
+```python
+# Using regex with pandas string methods
+df = pd.DataFrame({
+    'text': ['Contact john@email.com', 'Call 123-456-7890', 'Visit www.example.com']
+})
+
+# Extract with regex
+df['text'].str.extract(r'(\w+@\w+\.\w+)')               # Extract email
+df['text'].str.extractall(r'(\d+)')                    # Extract all numbers
+df['text'].str.findall(r'\w+')                         # Find all words
+
+# Boolean operations with regex
+df['text'].str.contains(r'\d{3}-\d{3}-\d{4}')          # Contains phone pattern
+df['text'].str.match(r'Contact.*')                     # Matches from start
+df['text'].str.fullmatch(r'Contact.*')                 # Full string match
+
+# Replace with regex
+df['text'].str.replace(r'\d{3}-\d{3}-\d{4}', 'PHONE', regex=True)  # Replace phone
+df['text'].str.replace(r'(\w+)@(\w+)', r'\1_AT_\2', regex=True)     # Use groups
+
+# Split with regex
+df['text'].str.split(r'\s+', expand=True)              # Split by whitespace
+```
+
+## Common Regex Patterns
+
+```python
+# Email validation
+email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+# Phone number (US format)
+phone_pattern = r'\d{3}-\d{3}-\d{4}'
+
+# URL matching
+url_pattern = r'https?://(?:[-\w.])+(?:\:[0-9]+)?(?:/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:\#(?:[\w.])*)?)?'
+
+# Date patterns
+date_pattern_1 = r'\d{4}-\d{2}-\d{2}'           # YYYY-MM-DD
+date_pattern_2 = r'\d{1,2}/\d{1,2}/\d{4}'       # MM/DD/YYYY
+
+# Numbers
+integer_pattern = r'^-?\d+$'                     # Integer
+float_pattern = r'^-?\d+\.?\d*$'                 # Float
+```
+
+## Method Chaining (Pandas Tidy Style)
+
+```python
+# Example of method chaining for string operations (similar to R's dplyr pipe)
+result = (df
+    .assign(
+        name_clean = lambda x: x['name'].str.lower().str.strip(),
+        domain = lambda x: x['email'].str.extract(r'@(\w+)\.'),
+        has_gmail = lambda x: x['email'].str.contains('gmail')
+    )
+    .query('has_gmail == True')
+    .reset_index(drop=True)
+)
+```
+
+
+## Performance Tips
+
+```python
+# For large datasets, consider these optimizations:
+
+# 1. Use categorical data for repeated strings
+df['category'] = df['category'].astype('category')
+
+# 2. Compile regex patterns for repeated use
+pattern = re.compile(r'\w+@\w+\.\w+')
+df['has_email'] = df['text'].str.contains(pattern)
+
+# 3. Use vectorized operations instead of apply()
+# Good: df['text'].str.lower()
+# Avoid: df['text'].apply(lambda x: x.lower())
+
+# 4. Filter before string operations when possible
+large_df = large_df[large_df['text'].notna()]  # Remove NaN first
+large_df['clean'] = large_df['text'].str.lower()
+
+# 5. Chain operations efficiently
+result = (df['text']
+    .str.lower()
+    .str.strip()
+    .str.replace(r'\s+', ' ', regex=True)
+    .str.title()
+)
+```
