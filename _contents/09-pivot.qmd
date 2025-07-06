@@ -1,0 +1,473 @@
+# Pivoting Data
+
+Reshaping data between wide and long formats is essential for different types of analyses and visualizations. While R's `tidyr::pivot_wider()` and `pivot_longer()` provide intuitive interfaces, pandas offers several methods for pivoting: `pivot()`, `pivot_table()`, `melt()`, and `stack()/unstack()`. This chapter will show you how to achieve tidyverse-style data reshaping in pandas.
+
+
+## Best Practices Summary
+
+Quick reference for pivoting patterns:
+
+| Task | R (tidyr) | Pandas |
+|------|-----------|--------|
+| Wide to long | `pivot_longer(df, cols, names_to, values_to)` | `df.melt(id_vars, value_vars, var_name, value_name)` |
+| Long to wide | `pivot_wider(df, names_from, values_from)` | `df.pivot(index, columns, values)` |
+| With aggregation | `pivot_wider(..., values_fn = sum)` | `df.pivot_table(..., aggfunc='sum')` |
+| Multiple values | `pivot_wider(..., values_from = c(x, y))` | `df.pivot(..., values=['x', 'y'])` |
+| Fill missing | `pivot_wider(..., values_fill = 0)` | `df.pivot_table(..., fill_value=0)` |
+| Complex names | `pivot_longer(..., names_pattern = "(.*)_(.*)")` | Use `melt()` then `str.extract()` |
+
+## Tips for Tidyverse Users
+
+1. **Use `melt()` for pivot_longer**: It's the most direct equivalent and very flexible.
+
+2. **Choose `pivot()` vs `pivot_table()`**: Use `pivot()` for simple reshaping, `pivot_table()` when you need aggregation.
+
+3. **Remember `reset_index()`**: After pivoting, often need to reset index to get regular columns.
+
+4. **Handle multi-level columns**: After pivoting multiple values, flatten column names for easier access.
+
+5. **Chain operations**: Pivoting works well in method chains:
+   ```python
+   (df
+    .melt(id_vars=['id'], var_name='metric', value_name='value')
+    .query('value > 0')
+    .pivot(index='id', columns='metric', values='value'))
+   ```
+
+Pivoting data in pandas offers multiple approaches for different scenarios. While the syntax differs from tidyr, the concepts are similar, and pandas often provides more control over the reshaping process, especially when dealing with complex data structures or when aggregation is needed.
+
+## Wide to Long Format (Melt)
+
+Converting wide data to long format, similar to `pivot_longer()`:
+
+```python
+import pandas as pd
+import numpy as np
+
+# Create wide format data
+df_wide = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie'],
+    'age': [25, 30, 35],
+    'jan_sales': [100, 150, 120],
+    'feb_sales': [110, 140, 130],
+    'mar_sales': [120, 160, 125]
+})
+df_wide
+```
+
+```python
+# Basic melt - pivot_longer equivalent
+# R: pivot_longer(df, cols = jan_sales:mar_sales, names_to = "month", values_to = "sales")
+df_long = df_wide.melt(
+    id_vars=['name', 'age'],
+    value_vars=['jan_sales', 'feb_sales', 'mar_sales'],
+    var_name='month',
+    value_name='sales'
+)
+df_long
+```
+
+```python
+# Melt with pattern matching
+# R: pivot_longer(df, cols = ends_with("_sales"), names_to = "month", values_to = "sales")
+sales_cols = df_wide.filter(like='_sales').columns
+df_long2 = df_wide.melt(
+    id_vars=['name', 'age'],
+    value_vars=sales_cols,
+    var_name='month',
+    value_name='sales'
+)
+
+# Clean up month names
+df_long2['month'] = df_long2['month'].str.replace('_sales', '')
+df_long2
+```
+
+## Long to Wide Format (Pivot)
+
+Converting long data to wide format, similar to `pivot_wider()`:
+
+```python
+# Create long format data
+df_long = pd.DataFrame({
+    'date': pd.date_range('2024-01-01', periods=9),
+    'store': ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'],
+    'metric': ['sales', 'customers', 'returns'] * 3,
+    'value': [1000, 50, 5, 1200, 60, 8, 900, 45, 3]
+})
+df_long
+```
+
+```python
+# Basic pivot - pivot_wider equivalent
+# R: pivot_wider(df, names_from = metric, values_from = value)
+df_wide = df_long.pivot(
+    index=['date', 'store'],
+    columns='metric',
+    values='value'
+).reset_index()
+df_wide
+```
+
+```python
+# Handle multiple value columns
+df_multi = pd.DataFrame({
+    'product': ['A', 'A', 'B', 'B'] * 2,
+    'quarter': ['Q1', 'Q2', 'Q1', 'Q2'] * 2,
+    'region': ['East', 'East', 'East', 'East', 'West', 'West', 'West', 'West'],
+    'revenue': [100, 120, 150, 160, 110, 130, 140, 170],
+    'units': [10, 12, 15, 16, 11, 13, 14, 17]
+})
+
+# Pivot with multiple values
+# R: pivot_wider(df, names_from = quarter, values_from = c(revenue, units))
+df_wide_multi = df_multi.pivot(
+    index=['product', 'region'],
+    columns='quarter',
+    values=['revenue', 'units']
+)
+df_wide_multi
+```
+
+## Pivot Table for Aggregation
+
+When you need to aggregate during pivoting:
+
+```python
+# Create data with duplicates
+df_sales = pd.DataFrame({
+    'date': pd.date_range('2024-01-01', periods=20),
+    'product': np.random.choice(['A', 'B', 'C'], 20),
+    'region': np.random.choice(['North', 'South'], 20),
+    'sales': np.random.randint(50, 200, 20),
+    'quantity': np.random.randint(1, 10, 20)
+})
+
+# Pivot table with aggregation
+# R: df %>% 
+#     pivot_wider(names_from = product, values_from = sales, values_fn = sum)
+pivot_result = df_sales.pivot_table(
+    index='region',
+    columns='product',
+    values='sales',
+    aggfunc='sum',
+    fill_value=0
+)
+pivot_result
+```
+
+```python
+# Multiple aggregations
+# R: df %>% 
+#     pivot_wider(names_from = product, 
+#                 values_from = c(sales, quantity),
+#                 values_fn = list(sales = sum, quantity = mean))
+pivot_multi_agg = df_sales.pivot_table(
+    index='region',
+    columns='product',
+    values=['sales', 'quantity'],
+    aggfunc={'sales': 'sum', 'quantity': 'mean'},
+    fill_value=0
+)
+pivot_multi_agg.round(1)
+```
+
+## Complex Melting Patterns
+
+Advanced patterns for reshaping wide data:
+
+```python
+# Create complex wide data
+df_complex_wide = pd.DataFrame({
+    'id': [1, 2, 3],
+    'name': ['Alice', 'Bob', 'Charlie'],
+    'test1_math': [85, 92, 78],
+    'test1_english': [88, 85, 92],
+    'test2_math': [87, 94, 80],
+    'test2_english': [90, 87, 91],
+    'final_math': [88, 93, 82],
+    'final_english': [89, 86, 93]
+})
+df_complex_wide
+```
+
+```python
+# Melt with pattern extraction
+# R: pivot_longer(df, 
+#                 cols = -c(id, name),
+#                 names_to = c("test_type", "subject"),
+#                 names_pattern = "(.*)_(.*)",
+#                 values_to = "score")
+
+# First melt to long format
+melted = df_complex_wide.melt(
+    id_vars=['id', 'name'],
+    var_name='test_subject',
+    value_name='score'
+)
+
+# Extract test type and subject from column names
+melted[['test_type', 'subject']] = melted['test_subject'].str.extract(r'(.+)_(.+)')
+melted = melted.drop(columns='test_subject')
+melted
+```
+
+## Stack and Unstack Methods
+
+Alternative approaches for reshaping:
+
+```python
+# Create multi-index DataFrame
+df_multi_index = pd.DataFrame({
+    'A': ['foo', 'foo', 'bar', 'bar'],
+    'B': ['one', 'two', 'one', 'two'],
+    'C': [1, 2, 3, 4],
+    'D': [10, 20, 30, 40]
+})
+df_indexed = df_multi_index.set_index(['A', 'B'])
+df_indexed
+```
+
+```python
+# Unstack - move index level to columns
+# Similar to pivot_wider
+df_unstacked = df_indexed.unstack()
+df_unstacked
+```
+
+```python
+# Stack - move columns to index
+# Similar to pivot_longer
+df_stacked = df_unstacked.stack()
+df_stacked
+```
+
+## Real-World Reshaping Examples
+
+Practical examples of data reshaping:
+
+```python
+# Example 1: Survey data from wide to long
+survey_wide = pd.DataFrame({
+    'respondent_id': [1, 2, 3, 4],
+    'age': [25, 35, 45, 30],
+    'q1_satisfaction': [4, 5, 3, 4],
+    'q2_satisfaction': [3, 5, 4, 4],
+    'q3_satisfaction': [5, 4, 3, 5],
+    'q1_importance': [5, 4, 5, 3],
+    'q2_importance': [4, 5, 5, 4],
+    'q3_importance': [3, 3, 4, 5]
+})
+
+# Reshape to have one row per question per respondent
+# First, separate satisfaction and importance
+satisfaction = survey_wide.melt(
+    id_vars=['respondent_id', 'age'],
+    value_vars=['q1_satisfaction', 'q2_satisfaction', 'q3_satisfaction'],
+    var_name='question',
+    value_name='satisfaction'
+)
+satisfaction['question'] = satisfaction['question'].str.extract(r'(q\d+)')
+
+importance = survey_wide.melt(
+    id_vars=['respondent_id', 'age'],
+    value_vars=['q1_importance', 'q2_importance', 'q3_importance'],
+    var_name='question',
+    value_name='importance'
+)
+importance['question'] = importance['question'].str.extract(r'(q\d+)')
+
+# Merge back together
+survey_long = satisfaction.merge(
+    importance[['respondent_id', 'question', 'importance']],
+    on=['respondent_id', 'question']
+)
+survey_long
+```
+
+```python
+# Example 2: Time series data reshaping
+# Create monthly data in wide format
+months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+products = ['Product_A', 'Product_B', 'Product_C']
+
+data = {}
+data['Store'] = ['Store_1', 'Store_2', 'Store_3']
+for product in products:
+    for month in months:
+        col_name = f'{product}_{month}'
+        data[col_name] = np.random.randint(50, 150, 3)
+
+df_monthly_wide = pd.DataFrame(data)
+df_monthly_wide.head()
+```
+
+```python
+# Reshape to long format with product and month as separate columns
+df_monthly_long = df_monthly_wide.melt(
+    id_vars=['Store'],
+    var_name='Product_Month',
+    value_name='Sales'
+)
+
+# Split Product_Month into separate columns
+df_monthly_long[['Product', 'Month']] = df_monthly_long['Product_Month'].str.split('_', n=1, expand=True)
+df_monthly_long = df_monthly_long.drop(columns='Product_Month')
+
+# Create a proper date column
+month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6}
+df_monthly_long['Month_Num'] = df_monthly_long['Month'].map(month_map)
+df_monthly_long['Date'] = pd.to_datetime('2024-' + df_monthly_long['Month_Num'].astype(str) + '-01')
+
+df_monthly_long = df_monthly_long[['Store', 'Product', 'Date', 'Sales']].sort_values(['Store', 'Product', 'Date'])
+df_monthly_long.head(10)
+```
+
+## Pivot with Multiple Index/Columns
+
+Handling complex pivoting scenarios:
+
+```python
+# Create hierarchical data
+df_hierarchical = pd.DataFrame({
+    'year': [2023, 2023, 2023, 2023, 2024, 2024, 2024, 2024],
+    'quarter': ['Q1', 'Q1', 'Q2', 'Q2', 'Q1', 'Q1', 'Q2', 'Q2'],
+    'region': ['East', 'West', 'East', 'West', 'East', 'West', 'East', 'West'],
+    'product': ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A'],
+    'revenue': [100, 110, 120, 130, 140, 150, 160, 170],
+    'cost': [60, 65, 70, 75, 80, 85, 90, 95]
+})
+
+# Pivot with multiple index and columns
+pivot_hierarchical = df_hierarchical.pivot_table(
+    index=['region', 'product'],
+    columns=['year', 'quarter'],
+    values=['revenue', 'cost'],
+    aggfunc='sum'
+)
+pivot_hierarchical
+```
+
+```python
+# Flatten multi-level columns
+pivot_hierarchical.columns = ['_'.join(map(str, col)).strip() for col in pivot_hierarchical.columns.values]
+pivot_hierarchical.reset_index()
+```
+
+## Handling Edge Cases
+
+Dealing with common pivoting challenges:
+
+```python
+# Duplicate entries
+df_duplicates = pd.DataFrame({
+    'date': ['2024-01-01', '2024-01-01', '2024-01-02'],
+    'product': ['A', 'A', 'B'],
+    'sales': [100, 50, 200]  # Two entries for product A on same date
+})
+
+# pivot() will fail with duplicates
+try:
+    df_duplicates.pivot(index='date', columns='product', values='sales')
+except ValueError as e:
+    print(f"Error: {e}")
+    
+# Use pivot_table() instead
+df_duplicates.pivot_table(
+    index='date', 
+    columns='product', 
+    values='sales', 
+    aggfunc='sum'  # Aggregate duplicates
+)
+```
+
+```python
+# Missing combinations
+df_sparse = pd.DataFrame({
+    'store': ['A', 'A', 'B'],  # Store B missing product Y
+    'product': ['X', 'Y', 'X'],
+    'sales': [100, 150, 120]
+})
+
+# Pivot with fill_value for missing combinations
+df_sparse.pivot_table(
+    index='store',
+    columns='product',
+    values='sales',
+    fill_value=0  # Fill missing with 0
+)
+```
+
+## Creating Tidyverse-Style Helper Functions
+
+Make pivoting more tidyr-like:
+
+```python
+def pivot_longer(df, cols, names_to='name', values_to='value', id_vars=None):
+    """
+    Mimics tidyr's pivot_longer
+    """
+    if id_vars is None:
+        id_vars = [col for col in df.columns if col not in cols]
+    
+    return df.melt(
+        id_vars=id_vars,
+        value_vars=cols,
+        var_name=names_to,
+        value_name=values_to
+    )
+
+def pivot_wider(df, names_from, values_from, id_cols=None):
+    """
+    Mimics tidyr's pivot_wider
+    """
+    if id_cols is None:
+        id_cols = [col for col in df.columns if col not in [names_from, values_from]]
+    
+    return df.pivot(
+        index=id_cols,
+        columns=names_from,
+        values=values_from
+    ).reset_index()
+
+# Usage examples
+df_test = pd.DataFrame({
+    'id': [1, 1, 2, 2],
+    'measurement': ['height', 'weight', 'height', 'weight'],
+    'value': [180, 75, 165, 60]
+})
+
+# R: pivot_wider(df, names_from = measurement, values_from = value)
+pivot_wider(df_test, names_from='measurement', values_from='value')
+```
+
+## Performance Considerations
+
+Efficient pivoting strategies:
+
+```python
+# Create large dataset
+np.random.seed(42)
+large_df = pd.DataFrame({
+    'id': np.repeat(range(1000), 12),
+    'month': np.tile(range(1, 13), 1000),
+    'value': np.random.randn(12000)
+})
+
+import time
+
+# Method 1: pivot()
+start = time.time()
+pivoted1 = large_df.pivot(index='id', columns='month', values='value')
+print(f"pivot(): {time.time() - start:.4f} seconds")
+
+# Method 2: pivot_table()
+start = time.time()
+pivoted2 = large_df.pivot_table(index='id', columns='month', values='value', aggfunc='mean')
+print(f"pivot_table(): {time.time() - start:.4f} seconds")
+
+# Method 3: unstack()
+start = time.time()
+pivoted3 = large_df.set_index(['id', 'month'])['value'].unstack()
+print(f"unstack(): {time.time() - start:.4f} seconds")
+```

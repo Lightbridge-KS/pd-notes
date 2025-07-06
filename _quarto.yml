@@ -21,6 +21,8 @@ book:
       - "contents/06-transform.ipynb"
       - "contents/07-aggregation.ipynb"
       - "contents/08-sorting.ipynb"
+      - "contents/09-pivot.ipynb"
+      - "contents/10-join.ipynb"
     - references.qmd
 
 bibliography: references.bib
