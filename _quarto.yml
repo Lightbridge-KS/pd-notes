@@ -19,6 +19,8 @@ book:
       - "contents/04-select-col.ipynb"
       - "contents/05-filter-row.ipynb"
       - "contents/06-transform.ipynb"
+      - "contents/07-aggregation.ipynb"
+      - "contents/08-sorting.ipynb"
     - references.qmd
 
 bibliography: references.bib

@@ -1,0 +1,447 @@
+# Arranging & Sorting
+
+Sorting data is a fundamental operation that helps reveal patterns and prepare data for analysis. While R's `dplyr::arrange()` provides a clean interface for sorting, pandas offers flexible sorting capabilities through `sort_values()` and `sort_index()`. This chapter will show you how to achieve tidyverse-style sorting in pandas.
+
+
+## Best Practices Summary
+
+Quick reference for sorting patterns:
+
+| Task | R (dplyr) | Pandas |
+|------|-----------|--------|
+| Simple sort | `arrange(df, col)` | `df.sort_values('col')` |
+| Descending | `arrange(df, desc(col))` | `df.sort_values('col', ascending=False)` |
+| Multiple columns | `arrange(df, col1, col2)` | `df.sort_values(['col1', 'col2'])` |
+| Mixed order | `arrange(df, col1, desc(col2))` | `df.sort_values(['col1', 'col2'], ascending=[True, False])` |
+| NA position | `arrange(df, col)` | `df.sort_values('col', na_position='last')` |
+| Top N | `slice_max(df, col, n=5)` | `df.nlargest(5, 'col')` |
+| Bottom N | `slice_min(df, col, n=5)` | `df.nsmallest(5, 'col')` |
+| By string length | `arrange(df, nchar(col))` | `df.sort_values('col', key=lambda x: x.str.len())` |
+| Within groups | `group_by(df, g) %>% arrange(col)` | `df.sort_values(['g', 'col'])` |
+
+## Tips for Tidyverse Users
+
+1. **Use `sort_values()` not `sort()`**: The `sort()` method is deprecated; always use `sort_values()`.
+
+2. **Remember ascending parameter**: It accepts both single boolean or list of booleans for multiple columns.
+
+3. **Consider `nlargest/nsmallest`**: Often faster than sorting everything when you only need top/bottom rows.
+
+4. **Chain sorting operations**: Sorting works well in method chains:
+   ```python
+   (df
+    .query('salary > 70000')
+    .sort_values('performance', ascending=False)
+    .head(10))
+   ```
+
+5. **Use `key` parameter**: For custom sorting logic, the `key` parameter (pandas 1.1.0+) is very powerful.
+
+Sorting in pandas is straightforward and flexible. While the syntax differs from dplyr's `arrange()`, pandas offers additional capabilities like index sorting and key functions that can handle complex sorting requirements efficiently.
+
+## Basic Sorting
+
+The fundamental ways to sort data in pandas:
+
+```python
+import pandas as pd
+import numpy as np
+
+# Create sample DataFrame
+df = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank'],
+    'department': ['Sales', 'IT', 'HR', 'Sales', 'IT', 'HR'],
+    'salary': [70000, 85000, 65000, 72000, 90000, 68000],
+    'years_exp': [5, 8, 3, 6, 10, 4],
+    'performance': [4.2, 4.5, 3.8, 4.0, 4.7, 3.9],
+    'hire_date': pd.to_datetime(['2019-03-15', '2016-06-01', '2021-01-10', 
+                                  '2018-09-20', '2014-11-30', '2020-04-05'])
+})
+
+# Simple sorting by one column
+# R: arrange(df, salary)
+df.sort_values('salary')
+```
+
+```python
+# Descending order
+# R: arrange(df, desc(salary))
+df.sort_values('salary', ascending=False)
+```
+
+```python
+# In-place sorting (modifies original DataFrame)
+# Note: This is different from R which always returns a new data frame
+df_copy = df.copy()
+df_copy.sort_values('salary', inplace=True)
+df_copy
+```
+
+## Multiple Column Sorting
+
+Sorting by multiple columns with different orders:
+
+```python
+# Sort by multiple columns
+# R: arrange(df, department, salary)
+df.sort_values(['department', 'salary'])
+```
+
+```python
+# Mixed ascending/descending order
+# R: arrange(df, department, desc(salary))
+df.sort_values(['department', 'salary'], ascending=[True, False])
+```
+
+```python
+# Complex multi-column sorting
+# R: arrange(df, desc(performance), years_exp, salary)
+df.sort_values(['performance', 'years_exp', 'salary'], 
+               ascending=[False, True, True])
+```
+
+## Sorting with Missing Values
+
+Handling NaN values during sorting:
+
+```python
+# Create DataFrame with missing values
+df_missing = pd.DataFrame({
+    'product': ['A', 'B', 'C', 'D', 'E'],
+    'price': [10.5, np.nan, 8.0, 12.0, np.nan],
+    'rating': [4.5, 3.8, np.nan, 4.2, 4.0],
+    'stock': [100, 50, 200, np.nan, 150]
+})
+
+# Default: NaN values go to the end
+# R: arrange(df, price) - NA values also go to end by default
+df_missing.sort_values('price')
+```
+
+```python
+# Put NaN values first
+# R: arrange(df, desc(is.na(price)), price)
+df_missing.sort_values('price', na_position='first')
+```
+
+```python
+# Multiple columns with different NaN handling
+df_missing.sort_values(['price', 'rating'], 
+                      na_position='first',
+                      ascending=[True, False])
+```
+
+## Sorting by Index
+
+Pandas allows sorting by index, which has no direct equivalent in dplyr:
+
+```python
+# Set a meaningful index
+df_indexed = df.set_index('name')
+df_indexed
+```
+
+```python
+# Sort by index
+# No direct R equivalent - would need to convert rownames to column first
+df_indexed.sort_index()
+```
+
+```python
+# Sort by index descending
+df_indexed.sort_index(ascending=False)
+```
+
+```python
+# Multi-level index sorting
+df_multi = df.set_index(['department', 'name']).sort_index()
+df_multi
+```
+
+## Sorting with Custom Functions
+
+Using key functions for custom sorting logic:
+
+```python
+# Sort by string length
+# R: arrange(df, nchar(name))
+df.sort_values('name', key=lambda x: x.str.len())
+```
+
+```python
+# Sort by last character of name
+# R: arrange(df, substr(name, nchar(name), nchar(name)))
+df.sort_values('name', key=lambda x: x.str[-1])
+```
+
+```python
+# Case-insensitive sorting
+# R: arrange(df, tolower(department))
+df_mixed_case = df.copy()
+df_mixed_case.loc[1, 'department'] = 'it'  # lowercase
+df_mixed_case.loc[3, 'department'] = 'SALES'  # uppercase
+
+df_mixed_case.sort_values('department', key=lambda x: x.str.lower())
+```
+
+## Sorting in Method Chains
+
+Integrating sorting into data pipelines:
+
+```python
+# Complex chain with sorting
+# R: df %>%
+#     filter(salary > 68000) %>%
+#     arrange(desc(performance), salary) %>%
+#     select(name, department, performance, salary)
+result = (df
+    .query('salary > 68000')
+    .sort_values(['performance', 'salary'], ascending=[False, True])
+    [['name', 'department', 'performance', 'salary']]
+)
+result
+```
+
+```python
+# Sorting after groupby operations
+# R: df %>%
+#     group_by(department) %>%
+#     summarize(avg_salary = mean(salary)) %>%
+#     arrange(desc(avg_salary))
+(df
+    .groupby('department')
+    .agg(avg_salary=('salary', 'mean'))
+    .sort_values('avg_salary', ascending=False)
+)
+```
+
+## Rank and Order Operations
+
+Getting ranks and ordering positions:
+
+```python
+# Add rank column
+# R: mutate(df, salary_rank = rank(salary))
+df['salary_rank'] = df['salary'].rank()
+df[['name', 'salary', 'salary_rank']]
+```
+
+```python
+# Different ranking methods
+# R: mutate(df, 
+#          rank_min = rank(salary, ties.method = "min"),
+#          rank_avg = rank(salary, ties.method = "average"),
+#          rank_dense = dense_rank(salary))
+df_ranks = df.assign(
+    rank_min = df['salary'].rank(method='min'),
+    rank_avg = df['salary'].rank(method='average'),
+    rank_max = df['salary'].rank(method='max'),
+    rank_dense = df['salary'].rank(method='dense')
+)
+df_ranks[['name', 'salary', 'rank_min', 'rank_avg', 'rank_max', 'rank_dense']]
+```
+
+```python
+# Ranking within groups
+# R: df %>% 
+#     group_by(department) %>% 
+#     mutate(dept_salary_rank = rank(desc(salary)))
+df['dept_salary_rank'] = df.groupby('department')['salary'].rank(ascending=False)
+df.sort_values(['department', 'dept_salary_rank'])
+```
+
+## Top N Operations
+
+Getting top/bottom N rows:
+
+```python
+# Top N by value
+# R: slice_max(df, salary, n = 3)
+df.nlargest(3, 'salary')
+```
+
+```python
+# Bottom N by value
+# R: slice_min(df, performance, n = 2)
+df.nsmallest(2, 'performance')
+```
+
+```python
+# Top N by multiple columns
+# First by performance, then by salary
+# R: arrange(df, desc(performance), desc(salary)) %>% slice_head(n = 3)
+df.nlargest(3, ['performance', 'salary'])
+```
+
+```python
+# Top N per group
+# R: df %>% 
+#     group_by(department) %>% 
+#     slice_max(salary, n = 1)
+df.sort_values('salary', ascending=False).groupby('department').head(1)
+```
+
+## Sorting Different Data Types
+
+Handling various data types in sorting:
+
+```python
+# Create DataFrame with various types
+df_types = pd.DataFrame({
+    'text': ['apple', 'Banana', '10apples', 'cherry', '2bananas'],
+    'numbers': [3.14, 2.71, 1.41, 2.24, 1.73],
+    'dates': pd.to_datetime(['2024-03-15', '2024-01-10', '2024-12-01', 
+                            '2024-06-20', '2024-02-28']),
+    'categories': pd.Categorical(['Low', 'High', 'Medium', 'Low', 'High'],
+                                categories=['Low', 'Medium', 'High'],
+                                ordered=True),
+    'booleans': [True, False, True, False, True]
+})
+
+# Sort by date
+df_types.sort_values('dates')
+```
+
+```python
+# Sort by categorical (respects order)
+df_types.sort_values('categories')
+```
+
+```python
+# Natural sorting for strings with numbers
+# R: arrange(df, str_sort(text, numeric = TRUE))
+# Pandas doesn't have built-in natural sort, but we can implement it
+def natural_sort_key(x):
+    import re
+    return [int(text) if text.isdigit() else text.lower() 
+            for text in re.split('([0-9]+)', x)]
+
+df_types.iloc[df_types['text'].apply(natural_sort_key).argsort()]
+```
+
+## Stable Sorting
+
+Understanding stable vs unstable sorting:
+
+```python
+# Create DataFrame with ties
+df_ties = pd.DataFrame({
+    'group': ['A', 'B', 'A', 'B', 'A', 'B'],
+    'value': [10, 10, 20, 20, 10, 20],
+    'order': [1, 2, 3, 4, 5, 6]  # Original order
+})
+
+# Stable sort preserves original order for ties
+# pandas sort is stable by default (like R)
+df_ties.sort_values('value')
+```
+
+```python
+# Multiple sorts to demonstrate stability
+(df_ties
+    .sort_values('order')  # First sort
+    .sort_values('value')  # Second sort preserves order within ties
+)
+```
+
+## Performance Considerations
+
+Efficient sorting strategies:
+
+```python
+# Create large DataFrame
+np.random.seed(42)
+large_df = pd.DataFrame({
+    'A': np.random.randn(100000),
+    'B': np.random.choice(['X', 'Y', 'Z'], 100000),
+    'C': np.random.randint(0, 1000, 100000)
+})
+
+import time
+
+# Method 1: Single column sort
+start = time.time()
+sorted1 = large_df.sort_values('A')
+print(f"Single column sort: {time.time() - start:.4f} seconds")
+
+# Method 2: Multiple column sort
+start = time.time()
+sorted2 = large_df.sort_values(['B', 'A'])
+print(f"Multiple column sort: {time.time() - start:.4f} seconds")
+
+# Method 3: In-place sort (saves memory)
+start = time.time()
+large_df_copy = large_df.copy()
+large_df_copy.sort_values('A', inplace=True)
+print(f"In-place sort: {time.time() - start:.4f} seconds")
+```
+
+## Advanced Sorting Patterns
+
+Complex sorting scenarios:
+
+```python
+# Sort by computed column without creating it
+# R: arrange(df, salary / years_exp)
+df.iloc[df.eval('salary / years_exp').argsort()[::-1]]
+```
+
+```python
+# Sort by aggregated values
+# Sort employees by their department's average salary
+# R: df %>% 
+#     group_by(department) %>% 
+#     mutate(dept_avg = mean(salary)) %>% 
+#     arrange(desc(dept_avg), desc(salary))
+dept_avg = df.groupby('department')['salary'].transform('mean')
+df.assign(dept_avg=dept_avg).sort_values(['dept_avg', 'salary'], 
+                                         ascending=[False, False])
+```
+
+```python
+# Custom sort order for categorical-like data
+# Define custom order for departments
+dept_order = {'IT': 0, 'Sales': 1, 'HR': 2}
+df.assign(dept_order=df['department'].map(dept_order)).sort_values('dept_order').drop(columns='dept_order')
+```
+
+## Creating Tidyverse-Style Helper Functions
+
+Make sorting more dplyr-like:
+
+```python
+def arrange(df, *args, ascending=True):
+    """
+    Mimics dplyr's arrange function
+    Use negative column names for descending order
+    """
+    columns = []
+    ascending_list = []
+    
+    for arg in args:
+        if arg.startswith('-'):
+            columns.append(arg[1:])
+            ascending_list.append(False)
+        else:
+            columns.append(arg)
+            ascending_list.append(True)
+    
+    return df.sort_values(columns, ascending=ascending_list)
+
+# Usage examples
+# R: arrange(df, department, desc(salary))
+arrange(df, 'department', '-salary')
+```
+
+```python
+def slice_max(df, column, n=5):
+    """Mimics dplyr's slice_max"""
+    return df.nlargest(n, column)
+
+def slice_min(df, column, n=5):
+    """Mimics dplyr's slice_min"""
+    return df.nsmallest(n, column)
+
+# Usage
+slice_max(df, 'salary', n=3)
+```

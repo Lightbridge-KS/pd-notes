@@ -1,0 +1,484 @@
+# Grouping & Aggregation
+
+Grouping and aggregation are fundamental operations for summarizing data. While R's `dplyr::group_by()` and `summarize()` provide an intuitive interface, pandas offers powerful grouping capabilities through its `groupby()` method. This chapter will show you how to achieve tidyverse-style grouped operations in pandas.
+
+
+## Best Practices Summary
+
+Quick reference for groupby patterns:
+
+| Task | R (dplyr) | Pandas |
+|------|-----------|--------|
+| Simple aggregate | `group_by(df, col) %>% summarize(mean = mean(x))` | `df.groupby('col')['x'].mean()` |
+| Multiple aggregates | `summarize(mean = mean(x), sum = sum(x))` | `df.groupby('col')['x'].agg(['mean', 'sum'])` |
+| Named aggregates | `summarize(avg_x = mean(x))` | `df.groupby('col').agg(avg_x=('x', 'mean'))` |
+| Transform | `group_by(df, col) %>% mutate(pct = x/sum(x))` | `df.groupby('col')['x'].transform(lambda x: x/x.sum())` |
+| Filter groups | `group_by(df, col) %>% filter(mean(x) > 10)` | `df.groupby('col').filter(lambda x: x['x'].mean() > 10)` |
+| Top n per group | `group_by(df, col) %>% slice_max(x, n=3)` | `df.sort_values('x').groupby('col').head(3)` |
+| Multiple grouping | `group_by(df, col1, col2)` | `df.groupby(['col1', 'col2'])` |
+
+## Tips for Tidyverse Users
+
+1. **Think aggregate vs transform**: `agg()` reduces groups to one row (like `summarize()`), while `transform()` maintains all rows (like `mutate()` after `group_by()`).
+
+2. **Use named aggregations**: The syntax `agg(new_name=('column', 'function'))` is cleaner and more dplyr-like.
+
+3. **Chain operations**: Groupby works well in method chains:
+   ```python
+   (df
+    .query('value > 0')
+    .groupby('category')
+    .agg(mean_value=('value', 'mean'))
+    .sort_values('mean_value'))
+   ```
+
+4. **Remember reset_index()**: After groupby operations, use `.reset_index()` if you want the grouping columns as regular columns.
+
+5. **Leverage pivot_table**: For reshaping grouped data, `pivot_table()` can be more intuitive than manual groupby + reshape.
+
+Grouping and aggregation in pandas is incredibly powerful. While the syntax differs from dplyr, the concepts translate well, and pandas often provides more flexibility for complex aggregations.
+
+## Basic Grouping and Aggregation
+
+The fundamental groupby operations in pandas:
+
+```python
+import pandas as pd
+import numpy as np
+
+# Create sample DataFrame
+df = pd.DataFrame({
+    'department': ['Sales', 'IT', 'HR', 'Sales', 'IT', 'HR', 'Sales', 'IT', 'HR'],
+    'employee': ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank', 'Grace', 'Henry', 'Iris'],
+    'salary': [70000, 85000, 65000, 72000, 90000, 68000, 75000, 88000, 71000],
+    'years_exp': [5, 8, 3, 6, 10, 4, 7, 9, 5],
+    'performance': [4.2, 4.5, 3.8, 4.0, 4.7, 3.9, 4.3, 4.6, 4.1]
+})
+
+# Simple aggregation
+# R: df %>% group_by(department) %>% summarize(avg_salary = mean(salary))
+df.groupby('department')['salary'].mean()
+```
+
+```python
+# Multiple aggregations
+# R: df %>% 
+#     group_by(department) %>% 
+#     summarize(avg_salary = mean(salary),
+#               total_salary = sum(salary),
+#               count = n())
+df.groupby('department')['salary'].agg(['mean', 'sum', 'count'])
+```
+
+```python
+# Custom named aggregations
+# R: df %>%
+#     group_by(department) %>%
+#     summarize(avg_salary = mean(salary),
+#               max_performance = max(performance),
+#               total_years = sum(years_exp))
+df.groupby('department').agg(
+    avg_salary=('salary', 'mean'),
+    max_performance=('performance', 'max'),
+    total_years=('years_exp', 'sum')
+).round(2)
+```
+
+## Multiple Aggregation Functions
+
+Applying different functions to different columns:
+
+```python
+# Different functions for different columns
+# R: df %>%
+#     group_by(department) %>%
+#     summarize(across(salary, list(mean = mean, sd = sd)),
+#               across(performance, list(min = min, max = max)))
+agg_dict = {
+    'salary': ['mean', 'std', 'min', 'max'],
+    'performance': ['mean', 'min', 'max'],
+    'years_exp': ['sum', 'mean']
+}
+
+df.groupby('department').agg(agg_dict).round(2)
+```
+
+```python
+# Flattening multi-level column names
+result = df.groupby('department').agg(agg_dict)
+result.columns = ['_'.join(col).strip() for col in result.columns.values]
+result.round(2)
+```
+
+## Custom Aggregation Functions
+
+Using custom functions in aggregations:
+
+```python
+# Define custom aggregation functions
+def salary_range(x):
+    return x.max() - x.min()
+
+def high_performers(x):
+    return (x >= 4.5).sum()
+
+# Apply custom functions
+# R: df %>%
+#     group_by(department) %>%
+#     summarize(salary_range = max(salary) - min(salary),
+#               high_performers = sum(performance >= 4.5))
+df.groupby('department').agg({
+    'salary': salary_range,
+    'performance': high_performers
+}).rename(columns={'salary': 'salary_range', 'performance': 'high_performers'})
+```
+
+```python
+# Multiple custom functions with lambda
+df.groupby('department').agg(
+    avg_salary=('salary', 'mean'),
+    salary_range=('salary', lambda x: x.max() - x.min()),
+    high_perf_count=('performance', lambda x: (x >= 4.5).sum()),
+    exp_weighted_salary=('salary', lambda x: np.average(x, weights=df.loc[x.index, 'years_exp']))
+).round(2)
+```
+
+## Transform vs Aggregate
+
+Understanding the difference between transform and aggregate:
+
+```python
+# Transform: returns same-sized result (like mutate after group_by)
+# R: df %>% group_by(department) %>% mutate(dept_avg_salary = mean(salary))
+df['dept_avg_salary'] = df.groupby('department')['salary'].transform('mean')
+df['salary_vs_dept_avg'] = df['salary'] - df['dept_avg_salary']
+df
+```
+
+```python
+# Multiple transforms
+# R: df %>% 
+#     group_by(department) %>%
+#     mutate(dept_rank = rank(-salary),
+#            pct_of_dept_total = salary / sum(salary) * 100)
+df_transformed = df.assign(
+    dept_rank = lambda x: x.groupby('department')['salary'].rank(ascending=False),
+    pct_of_dept_total = lambda x: x.groupby('department')['salary'].transform(lambda s: s / s.sum() * 100),
+    z_score = lambda x: x.groupby('department')['salary'].transform(lambda s: (s - s.mean()) / s.std())
+)
+df_transformed.round(2)
+```
+
+## Multiple Grouping Variables
+
+Grouping by multiple columns:
+
+```python
+# Create DataFrame with multiple grouping variables
+df_multi = pd.DataFrame({
+    'region': ['East', 'East', 'West', 'West', 'East', 'West'] * 3,
+    'department': ['Sales', 'IT', 'Sales', 'IT', 'HR', 'HR'] * 3,
+    'quarter': ['Q1', 'Q1', 'Q1', 'Q1', 'Q1', 'Q1',
+                'Q2', 'Q2', 'Q2', 'Q2', 'Q2', 'Q2',
+                'Q3', 'Q3', 'Q3', 'Q3', 'Q3', 'Q3'],
+    'revenue': np.random.randint(50000, 150000, 18),
+    'costs': np.random.randint(30000, 80000, 18)
+})
+
+# Group by multiple columns
+# R: df %>% 
+#     group_by(region, department) %>%
+#     summarize(total_revenue = sum(revenue),
+#               total_costs = sum(costs),
+#               profit = sum(revenue - costs))
+df_multi.groupby(['region', 'department']).agg(
+    total_revenue=('revenue', 'sum'),
+    total_costs=('costs', 'sum')
+).assign(profit=lambda x: x['total_revenue'] - x['total_costs'])
+```
+
+```python
+# Hierarchical grouping with subtotals
+# First level: by region
+region_summary = df_multi.groupby('region').agg({
+    'revenue': 'sum',
+    'costs': 'sum'
+}).assign(level='Region Total')
+
+# Second level: by region and department
+region_dept_summary = df_multi.groupby(['region', 'department']).agg({
+    'revenue': 'sum',
+    'costs': 'sum'
+})
+
+region_dept_summary
+```
+
+## Filter and Slice Groups
+
+Working with grouped data using filter and head/tail:
+
+```python
+# Filter groups based on group statistics
+# R: df %>% 
+#     group_by(department) %>%
+#     filter(mean(salary) > 75000)
+df_filtered = df.groupby('department').filter(lambda x: x['salary'].mean() > 75000)
+df_filtered
+```
+
+```python
+# Keep only top performers in each department
+# R: df %>% 
+#     group_by(department) %>%
+#     slice_max(performance, n = 2)
+df.sort_values('performance', ascending=False).groupby('department').head(2)
+```
+
+```python
+# More complex filtering
+# Keep departments where all employees have 5+ years experience
+# R: df %>% 
+#     group_by(department) %>%
+#     filter(all(years_exp >= 5))
+df.groupby('department').filter(lambda x: (x['years_exp'] >= 5).all())
+```
+
+## Window Functions with Groups
+
+Calculating running totals and other window functions within groups:
+
+```python
+# Create time-series grouped data
+df_sales = pd.DataFrame({
+    'date': pd.date_range('2024-01-01', periods=12, freq='M'),
+    'region': ['North', 'South'] * 6,
+    'sales': np.random.randint(10000, 50000, 12)
+})
+
+# Cumulative calculations within groups
+# R: df %>% 
+#     group_by(region) %>%
+#     arrange(date) %>%
+#     mutate(cumsum_sales = cumsum(sales),
+#            rolling_avg = rollmean(sales, k = 3, fill = NA, align = "right"))
+df_sales_calc = (df_sales
+    .sort_values(['region', 'date'])
+    .assign(
+        cumsum_sales = lambda x: x.groupby('region')['sales'].cumsum(),
+        rolling_avg_3m = lambda x: x.groupby('region')['sales'].transform(lambda s: s.rolling(3, min_periods=1).mean()),
+        pct_of_region_total = lambda x: x.groupby('region')['sales'].transform(lambda s: s / s.sum() * 100)
+    )
+)
+df_sales_calc.round(2)
+```
+
+## Pivot Tables as Grouped Aggregations
+
+Using pivot_table for grouped summaries:
+
+```python
+# Pivot table for cross-tabulation
+# R: df %>% 
+#     group_by(region, quarter) %>%
+#     summarize(total_revenue = sum(revenue)) %>%
+#     pivot_wider(names_from = quarter, values_from = total_revenue)
+pivot_result = df_multi.pivot_table(
+    values='revenue',
+    index='region',
+    columns='quarter',
+    aggfunc='sum'
+)
+pivot_result
+```
+
+```python
+# Multiple aggregations in pivot table
+pivot_multi = df_multi.pivot_table(
+    values=['revenue', 'costs'],
+    index='region',
+    columns='department',
+    aggfunc={'revenue': 'sum', 'costs': 'mean'},
+    fill_value=0
+)
+pivot_multi.round(0)
+```
+
+## Advanced Groupby Operations
+
+Complex groupby patterns:
+
+```python
+# Create complex dataset
+np.random.seed(42)
+df_complex = pd.DataFrame({
+    'store_id': np.repeat(['S01', 'S02', 'S03'], 12),
+    'month': pd.date_range('2024-01-01', periods=12, freq='M').tolist() * 3,
+    'product': np.tile(['A', 'B', 'C', 'D'] * 3, 3),
+    'units_sold': np.random.randint(50, 200, 36),
+    'price': np.random.uniform(10, 50, 36)
+})
+df_complex['revenue'] = df_complex['units_sold'] * df_complex['price']
+
+# Multiple level aggregation with custom functions
+result = (df_complex
+    .groupby(['store_id', 'product'])
+    .agg(
+        total_units=('units_sold', 'sum'),
+        avg_price=('price', 'mean'),
+        total_revenue=('revenue', 'sum'),
+        months_active=('month', 'nunique'),
+        best_month=('revenue', lambda x: df_complex.loc[x.idxmax(), 'month'].strftime('%Y-%m'))
+    )
+    .round(2)
+)
+result
+```
+
+## Named Aggregations Pattern
+
+Using the modern named aggregation syntax:
+
+```python
+# Clean named aggregations (pandas >= 0.25)
+# R: df %>%
+#     group_by(department) %>%
+#     summarize(
+#         n_employees = n(),
+#         avg_salary = mean(salary),
+#         sd_salary = sd(salary),
+#         median_performance = median(performance),
+#         salary_per_year_exp = sum(salary) / sum(years_exp)
+#     )
+summary = df.groupby('department').agg(
+    n_employees=pd.NamedAgg(column='employee', aggfunc='count'),
+    avg_salary=pd.NamedAgg(column='salary', aggfunc='mean'),
+    sd_salary=pd.NamedAgg(column='salary', aggfunc='std'),
+    median_performance=pd.NamedAgg(column='performance', aggfunc='median'),
+    total_salary=pd.NamedAgg(column='salary', aggfunc='sum'),
+    total_years=pd.NamedAgg(column='years_exp', aggfunc='sum')
+).assign(
+    salary_per_year_exp=lambda x: x['total_salary'] / x['total_years']
+).drop(columns=['total_salary', 'total_years']).round(2)
+
+summary
+```
+
+## Grouped Operations in Method Chains
+
+Integrating groupby into larger data pipelines:
+
+```python
+# Complex chain with groupby
+# R: df %>%
+#     filter(years_exp >= 3) %>%
+#     group_by(department) %>%
+#     summarize(avg_salary = mean(salary),
+#               avg_performance = mean(performance)) %>%
+#     arrange(desc(avg_salary))
+result_chain = (df
+    .query('years_exp >= 3')
+    .groupby('department')
+    .agg(
+        avg_salary=('salary', 'mean'),
+        avg_performance=('performance', 'mean'),
+        count=('employee', 'count')
+    )
+    .round(2)
+    .sort_values('avg_salary', ascending=False)
+)
+result_chain
+```
+
+## Groupby with Time Series
+
+Special considerations for time-based grouping:
+
+```python
+# Create time series data
+dates = pd.date_range('2024-01-01', periods=365, freq='D')
+df_ts = pd.DataFrame({
+    'date': dates,
+    'store': np.random.choice(['A', 'B', 'C'], 365),
+    'sales': np.random.randint(1000, 5000, 365) + np.random.randn(365) * 500
+})
+
+# Group by multiple time periods
+# R: df %>%
+#     mutate(month = floor_date(date, "month"),
+#            week = floor_date(date, "week")) %>%
+#     group_by(store, month) %>%
+#     summarize(monthly_sales = sum(sales))
+df_ts_summary = (df_ts
+    .assign(
+        month=lambda x: x['date'].dt.to_period('M'),
+        week=lambda x: x['date'].dt.to_period('W'),
+        quarter=lambda x: x['date'].dt.to_period('Q')
+    )
+    .groupby(['store', 'month'])
+    .agg(
+        monthly_sales=('sales', 'sum'),
+        days_active=('date', 'count'),
+        best_day_sales=('sales', 'max')
+    )
+    .round(0)
+)
+df_ts_summary.head(10)
+```
+
+## Creating Tidyverse-Style Helper Functions
+
+Make groupby operations more dplyr-like:
+
+```python
+def group_by_summarize(df, groupby_cols, **agg_funcs):
+    """
+    Mimics dplyr's group_by %>% summarize
+    """
+    return df.groupby(groupby_cols).agg(**agg_funcs)
+
+def group_by_mutate(df, groupby_cols, **transform_funcs):
+    """
+    Mimics dplyr's group_by %>% mutate
+    """
+    df_copy = df.copy()
+    for name, (column, func) in transform_funcs.items():
+        df_copy[name] = df.groupby(groupby_cols)[column].transform(func)
+    return df_copy
+
+# Usage examples
+# R: df %>% group_by(department) %>% summarize(avg_salary = mean(salary))
+group_by_summarize(df, 'department', avg_salary=('salary', 'mean'))
+```
+
+```python
+# R: df %>% group_by(department) %>% mutate(salary_pct = salary / sum(salary) * 100)
+group_by_mutate(df, 'department', 
+                salary_pct=('salary', lambda x: x / x.sum() * 100)).round(2)
+```
+
+## Performance Tips
+
+Efficient groupby operations:
+
+```python
+# Create large DataFrame
+large_df = pd.DataFrame({
+    'group': np.random.choice(['A', 'B', 'C', 'D'], 100000),
+    'value': np.random.randn(100000)
+})
+
+import time
+
+# Method 1: Single pass aggregation (fastest)
+start = time.time()
+result1 = large_df.groupby('group')['value'].agg(['mean', 'sum', 'std'])
+print(f"Single pass: {time.time() - start:.4f} seconds")
+
+# Method 2: Multiple separate aggregations (slower)
+start = time.time()
+mean_result = large_df.groupby('group')['value'].mean()
+sum_result = large_df.groupby('group')['value'].sum()
+std_result = large_df.groupby('group')['value'].std()
+print(f"Multiple passes: {time.time() - start:.4f} seconds")
+```
