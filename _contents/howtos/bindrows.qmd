@@ -1,0 +1,113 @@
+# Bind Rows
+
+## List of DFs
+
+::: {.callout-note appearance="simple"}
+How do I row binding multiple data frames inside a list? 
+:::
+
+You can **row bind** (concatenate vertically) multiple DataFrames in a list using `pd.concat()` in pandas.
+
+Here’s the typical approach:
+
+```python
+import pandas as pd
+
+# Example: List of DataFrames
+df1 = pd.DataFrame({'A': [1, 2], 'B': [3, 4]})
+df2 = pd.DataFrame({'A': [5, 6], 'B': [7, 8]})
+dfs = [df1, df2]
+
+# Row-bind all DataFrames in the list
+result = pd.concat(dfs, axis=0, ignore_index=True)
+print(result)
+```
+
+**Output:**
+
+```
+   A  B
+0  1  3
+1  2  4
+2  5  7
+3  6  8
+```
+
+---
+
+**Key points:**
+
+* Use `axis=0` (default) to concatenate by rows.
+* `ignore_index=True` resets the index in the result.
+
+---
+
+## Dict of DFs
+
+::: {.callout-note appearance="simple"}
+How do I row binding multiple data frames inside a dictionary, where the keys of dictionary become another index column?
+:::
+
+Great question! When you have a **dictionary of DataFrames** and want to row-bind them so that the dictionary keys become an index (or a new column), the best tool in pandas is [`pd.concat()`](https://pandas.pydata.org/docs/reference/api/pandas.concat.html) with the `keys` argument.
+
+### Example
+
+```python
+import pandas as pd
+
+# Example: dictionary of DataFrames
+dfs = {
+    'a': pd.DataFrame({'x': [1, 2], 'y': [3, 4]}),
+    'b': pd.DataFrame({'x': [5, 6], 'y': [7, 8]})
+}
+
+# Row-bind with keys as a new index level
+result = pd.concat(dfs, axis=0, names=['source'])
+print(result)
+```
+
+**Output:**
+
+```
+  source  x  y
+a      0  1  3
+       1  2  4
+b      0  5  7
+       1  6  8
+```
+
+Notice the outer index is now the dictionary keys (`'a'`, `'b'`).
+
+---
+
+### If you want the key as a **column** (not an index):
+
+```python
+result = pd.concat(
+    dfs, axis=0, names=['source']
+).reset_index(level=0).reset_index(drop=True)
+print(result)
+```
+
+**Output:**
+
+```
+  source  x  y
+0      a  1  3
+1      a  2  4
+2      b  5  7
+3      b  6  8
+```
+
+---
+
+## Summary Table
+
+| Approach                   | Result               | Code Example                          |
+| -------------------------- | -------------------- | ------------------------------------- |
+| `pd.concat(dfs, keys=...)` | Key becomes index    | `pd.concat(dfs, names=['source'])`    |
+| `reset_index(level=0)`     | Key becomes a column | `pd.concat(...).reset_index(level=0)` |
+
+---
+
+Let me know if you need a more complex example or want the R `bind_rows()` equivalent!

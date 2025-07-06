@@ -26,7 +26,11 @@ book:
     - part: "Advanced Operation"
       chapters: 
       - "contents/11-string-and-regex.ipynb"
+    - part: "How To"
+      chapters: 
+      - "contents/howtos/bindrows.ipynb"
     - references.qmd
+
 
 bibliography: references.bib
 
