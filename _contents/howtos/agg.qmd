@@ -1,0 +1,176 @@
+# Aggregation & Counts
+
+## Count multiple
+
+::: {.callout-note appearance="simple" collapse="false"}
+How do I count the values occurrence in combination of columns?
+:::
+
+
+To **count the occurrences of unique combinations** of values across multiple columns in pandas, use the `.value_counts()` method with a list of columns, or use `.groupby()` + `.size()`.
+
+---
+
+### **1. Using `value_counts()`**
+
+Suppose you have:
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({
+    'A': ['foo', 'bar', 'foo', 'bar', 'foo'],
+    'B': [1, 2, 1, 2, 1]
+})
+```
+
+Count occurrences of each unique (A, B) pair:
+
+```python
+counts = df.value_counts(['A', 'B'])
+print(counts)
+```
+
+**Output:**
+
+```
+A    B
+foo  1    3
+bar  2    2
+dtype: int64
+```
+
+---
+
+### **2. Using `groupby()` and `size()`**
+
+```python
+counts = df.groupby(['A', 'B']).size()
+print(counts)
+```
+
+You can also **reset index** to get a DataFrame:
+
+```python
+counts = df.groupby(['A', 'B']).size().reset_index(name='count')
+print(counts)
+```
+
+**Output:**
+
+```
+     A  B  count
+0  bar  2      2
+1  foo  1      3
+```
+
+---
+
+#### **Summary Table**
+
+| Method                | Code Example                                     | Output Type         |
+| --------------------- | ------------------------------------------------ | ------------------- |
+| `.value_counts(cols)` | `df.value_counts(['A', 'B'])`                    | Series (MultiIndex) |
+| `.groupby().size()`   | `df.groupby(['A', 'B']).size()`                  | Series (MultiIndex) |
+| With reset\_index     | `.groupby(...).size().reset_index(name='count')` | DataFrame           |
+
+---
+
+Let me know if you want an example with more columns or more complex data!
+
+
+
+## Multiple Agg
+
+::: {.callout-note appearance="simple" collapse="false"}
+How do I perform multiple aggregation with custom function (and also counts) on a grouped DF with multiple grouping columns?
+:::
+
+You can perform **multiple aggregations**—including custom functions and counts—on a grouped DataFrame by passing a dictionary to `.agg()` (or using named aggregations). Here’s how:
+
+---
+
+### **Example DataFrame**
+
+```python
+import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'A': ['foo', 'foo', 'bar', 'bar', 'foo', 'bar'],
+    'B': ['one', 'one', 'one', 'two', 'two', 'two'],
+    'C': [1, 3, 5, 7, 9, 11],
+    'D': [2, 4, 6, 8, 10, 12]
+})
+```
+
+---
+
+### **1. Multiple Aggregations with Built-in and Custom Functions**
+
+Suppose you want to:
+
+* Get the mean and sum of column `C`
+* Count the number of rows (`count`)
+* Get a custom function (e.g., range: max-min) on column `D`
+
+```python
+result = (
+    df.groupby(['A', 'B'])
+      .agg(
+          C_mean=('C', 'mean'),
+          C_sum=('C', 'sum'),
+          row_count=('C', 'count'),
+          D_range=('D', lambda x: x.max() - x.min())
+      )
+)
+print(result)
+```
+
+**Output:**
+
+```
+         C_mean  C_sum  row_count  D_range
+A   B                                   
+bar one    5.0      5          1        0
+    two    9.0     18          2        4
+foo one    2.0      4          2        2
+    two    9.0      9          1        0
+```
+
+---
+
+### **2. Using Different Aggregations on Different Columns**
+
+If you want to apply different functions per column:
+
+```python
+result = (
+    df.groupby(['A', 'B'])
+      .agg({
+          'C': ['mean', 'sum', 'count'],
+          'D': [lambda x: x.max() - x.min(), 'min']
+      })
+)
+print(result)
+```
+
+---
+
+### **Summary Table**
+
+| Task                    | Example Code                                              |
+| ----------------------- | --------------------------------------------------------- |
+| Built-in + custom agg   | `agg(C_mean=('C', 'mean'), D_range=('D', lambda x: ...))` |
+| Dict per column         | `agg({'C': ['mean', 'sum'], 'D': [lambda x: ...]})`       |
+| Count rows per group    | `'row_count': ('C', 'count')` or `'C': 'count'`           |
+| Named agg (recommended) | `agg(col1_funcname=('col1', func), ...)`                  |
+
+---
+
+**Tip:**
+You can always use any NumPy, pandas, or custom function as long as it accepts a Series.
+
+---
+
+Let me know if you need to do something even more specific, or want to see results for your own data!

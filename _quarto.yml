@@ -29,6 +29,7 @@ book:
     - part: "How To"
       chapters: 
       - "contents/howtos/bindrows.ipynb"
+      - "contents/howtos/agg.ipynb"
     - references.qmd
 
 
