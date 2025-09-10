@@ -1,0 +1,99 @@
+# Count
+
+In pandas, there are several ways to count values in columns, similar to R's `dplyr::count()`. Here are the main approaches:
+
+### Comparison with R's `dplyr::count()`
+
+| Aspect | R (`dplyr`) | Python (`pandas`) |
+|--------|-------------|-------------------|
+| Basic count | `count(df, species)` | `df.groupby('species').size().reset_index(name='n')` |
+| Multiple columns | `count(df, species, island)` | `df.groupby(['species', 'island']).size().reset_index(name='n')` |
+| Sort by count | `count(df, species, sort=TRUE)` | `df.value_counts(['species']).reset_index()` |
+| Custom count name | `count(df, species, name="total")` | `df.groupby('species').size().reset_index(name='total')` |
+| Include weights | `count(df, species, wt=weight)` | `df.groupby('species')['weight'].sum().reset_index()` |
+
+### `value_counts()` - Most Direct Equivalent
+
+```python
+# Count values in a single column
+df['column_name'].value_counts()
+
+# Count values in multiple columns (like group_by + count)
+df.value_counts(['col1', 'col2'])
+
+# Sort by count (ascending)
+df['column_name'].value_counts(ascending=True)
+
+# Include NA values
+df['column_name'].value_counts(dropna=False)
+```
+
+### `groupby().size()` - More Flexible
+
+```python
+# Count by single column
+df.groupby('column_name').size()
+
+# Count by multiple columns
+df.groupby(['col1', 'col2']).size()
+
+# Reset index to get a DataFrame (more like dplyr::count())
+df.groupby('column_name').size().reset_index(name='count')
+
+# Method chaining (pipe-like style)
+(df
+ .groupby(['col1', 'col2'])
+ .size()
+ .reset_index(name='n')  # 'n' matches dplyr convention
+ .sort_values('n', ascending=False)
+)
+```
+
+### Method Chaining for Tidyverse-like Style
+
+```python
+# Most similar to dplyr::count()
+def count_values(df, *columns, name='n', sort=True, ascending=False):
+    """Count values in specified columns."""
+    result = (df
+              .groupby(list(columns))
+              .size()
+              .reset_index(name=name))
+    
+    if sort:
+        result = result.sort_values(name, ascending=ascending)
+    
+    return result
+
+# Usage
+count_values(df, 'species')
+count_values(df, 'species', 'island', name='count')
+```
+
+
+
+### Quick Examples
+
+```python
+import pandas as pd
+
+# Sample data
+df = pd.DataFrame({
+    'species': ['cat', 'dog', 'cat', 'bird', 'dog', 'cat'],
+    'color': ['black', 'brown', 'white', 'yellow', 'black', 'black']
+})
+
+# Method 1: value_counts()
+print(df['species'].value_counts())
+
+# Method 2: groupby + size (most dplyr-like)
+species_count = (df
+                 .groupby('species')
+                 .size()
+                 .reset_index(name='n')
+                 .sort_values('n', ascending=False))
+
+print(species_count)
+```
+
+The `groupby().size().reset_index(name='n')` pattern is probably closest to R's `dplyr::count()` in terms of output format and flexibility!
