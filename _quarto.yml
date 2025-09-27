@@ -28,6 +28,9 @@ book:
     - part: "Advanced Operation"
       chapters: 
       - "contents/11-string-and-regex.ipynb"
+    - part: "Missing value"
+      chapters: 
+        - "contents/usecase/propagate_NA.qmd"
     - part: "How To"
       chapters: 
       - "contents/howtos/bindrows.ipynb"

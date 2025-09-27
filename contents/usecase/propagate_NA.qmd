@@ -1,0 +1,122 @@
+# Propagate NA
+
+
+
+## Series `NA`
+
+::: {.callout-note appearance="default" collapse="false"}
+**Observation:** `pd.NA` is not propagate
+
+```python
+import pandas as pd
+import numpy as np
+
+# Your example
+result = pd.Series([True, pd.NA]) | pd.Series([False, pd.NA])
+print(result)
+# Output: 0    True
+#         1    False
+#         dtype: boolean
+```
+:::
+
+
+
+The `|` operator follows **three-valued logic** where `True | anything = True`, so `True | pd.NA = True`.
+
+Solutions:
+
+### Method 1: Manual NA Propagation with `where()`
+
+```python
+def or_with_na_propagation(s1, s2):
+    """Logical OR with NA propagation."""
+    result = s1 | s2
+    # Set result to NA where either operand is NA
+    return result.where(~(s1.isna() | s2.isna()), pd.NA)
+
+# Usage
+s1 = pd.Series([True, pd.NA])
+s2 = pd.Series([False, pd.NA])
+result = or_with_na_propagation(s1, s2)
+print(result)
+# Output: 0    True
+#         1    <NA>
+#         dtype: boolean
+```
+
+### Method 2: Using `numpy.where()` with Custom Logic
+
+```python
+def logical_or_na_prop(s1, s2):
+    """Logical OR with NA propagation using numpy.where."""
+    # If either is NA, result is NA
+    either_na = s1.isna() | s2.isna()
+    # Standard logical OR
+    or_result = s1 | s2
+    
+    return pd.Series(
+        np.where(either_na, pd.NA, or_result),
+        dtype='boolean'
+    )
+
+result = logical_or_na_prop(s1, s2)
+print(result)
+# Output: 0    True
+#         1    <NA>
+#         dtype: boolean
+```
+
+### Method 3: Pipe-Style Approach (R tidyverse-like)
+
+```python
+def pipe_or_na_prop(s1, s2):
+    """Pipe-style logical OR with NA propagation."""
+    return (
+        (s1 | s2)
+        .where(~(s1.isna() | s2.isna()), pd.NA)
+    )
+
+result = pipe_or_na_prop(s1, s2)
+print(result)
+# Output: 0    True
+#         1    <NA>
+#         dtype: boolean
+```
+
+## Comparison Table
+
+| Method | Pros | Cons | R tidyverse similarity |
+|--------|------|------|----------------------|
+| `where()` approach | Clean, readable | Requires wrapper function | High - similar to `ifelse()` |
+| `numpy.where()` | Explicit control | More verbose | Medium |
+| Pipe-style | Chainable, functional | Still needs wrapper | Very High - mimics `%>%` |
+
+## Creating a Reusable Utility
+
+```python
+class LogicalOps:
+    """Logical operations with NA propagation."""
+    
+    @staticmethod
+    def or_na(s1, s2):
+        """Logical OR with NA propagation."""
+        return (s1 | s2).where(~(s1.isna() | s2.isna()), pd.NA)
+    
+    @staticmethod
+    def and_na(s1, s2):
+        """Logical AND with NA propagation."""
+        return (s1 & s2).where(~(s1.isna() | s2.isna()), pd.NA)
+
+# Usage
+result = LogicalOps.or_na(
+    pd.Series([True, pd.NA]), 
+    pd.Series([False, pd.NA])
+)
+print(result)
+# Output: 0    True
+#         1    <NA>
+#         dtype: boolean
+```
+
+The pipe-style approach with `where()` is probably closest to what you'd expect coming from R's tidyverse, where NA values typically propagate through logical operations unless explicitly handled.
