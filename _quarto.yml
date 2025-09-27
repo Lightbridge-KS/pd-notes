@@ -17,6 +17,7 @@ book:
     - part: "Data Manipulation"
       chapters: 
       - "contents/04-select-col.ipynb"
+      - "contents/usecase/reorder-cols.qmd"
       - "contents/05-filter-row.ipynb"
       - "contents/06-transform.ipynb"
       - "contents/07-aggregation.ipynb"

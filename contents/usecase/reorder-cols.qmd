@@ -1,0 +1,93 @@
+# Reorder Columns
+
+Pandas offers several ways to reorder columns similar to `dplyr::relocate()`. Here are the main approaches:
+
+## Comparison with R's `dplyr::relocate()`
+
+| Feature | R `relocate()` | Pandas Equivalent |
+|---------|----------------|-------------------|
+| Move to front | `relocate(col1, col2)` | `df.reindex(columns=['col1', 'col2'] + remaining)` |
+| Move after column | `relocate(col1, .after = col2)` | Custom `relocate()` function |
+| Move before column | `relocate(col1, .before = col2)` | Custom `relocate()` function |
+| Column selection helpers | `.after = last_col()` | `df.columns.tolist()` manipulation |
+| Pipe-friendly | `%>% relocate(col1)` | Method chaining with `.pipe()` |
+
+
+## Using `df.reindex()` (Most Similar to relocate)
+
+```python
+import pandas as pd
+
+# Sample data
+df = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie'],
+    'age': [25, 30, 35],
+    'city': ['NY', 'LA', 'Chicago'],
+    'salary': [50000, 60000, 70000]
+})
+
+# Reorder columns - specify exact order
+df_reordered = df.reindex(columns=['salary', 'name', 'age', 'city'])
+```
+
+## Using Column Selection with Lists
+
+```python
+# Move specific columns to front
+cols = ['salary', 'name'] + [col for col in df.columns if col not in ['salary', 'name']]
+df_reordered = df[cols]
+
+# Or more explicitly
+df_reordered = df[['salary', 'name', 'age', 'city']]
+```
+
+## Helper Functions (Most "tidyverse-like")
+
+```python
+def relocate(df, *cols, before=None, after=None):
+    """Move columns to specific positions."""
+    cols = list(cols)
+    remaining = [c for c in df.columns if c not in cols]
+    
+    if before:
+        idx = remaining.index(before)
+        new_order = remaining[:idx] + cols + remaining[idx:]
+    elif after:
+        idx = remaining.index(after) + 1
+        new_order = remaining[:idx] + cols + remaining[idx:]
+    else:
+        # Move to front by default
+        new_order = cols + remaining
+    
+    return df.reindex(columns=new_order)
+
+# Usage examples
+df_relocated = relocate(df, 'salary', 'city')  # Move to front
+df_relocated = relocate(df, 'salary', after='name')  # Move after 'name'
+df_relocated = relocate(df, 'city', before='age')   # Move before 'age'
+```
+
+## Using `df.insert()` for Single Column Moves
+
+```python
+# Remove and reinsert column at specific position
+col_data = df.pop('salary')  # Remove column
+df.insert(0, 'salary', col_data)  # Insert at position 0 (front)
+```
+
+## Method Chaining (Pipe-style)
+
+```python
+# Chain operations pandas-style
+result = (df
+    .pipe(relocate, 'salary', 'name')  # Using custom function
+    .query('age > 25')
+    .reset_index(drop=True)
+)
+
+# Or using assign and reindex together
+result = (df
+    .assign(salary_k=lambda x: x['salary'] / 1000)
+    .reindex(columns=['salary_k', 'name', 'age', 'city', 'salary'])
+)
+```
