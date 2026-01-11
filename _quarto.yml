@@ -31,6 +31,8 @@ book:
     - part: "Missing value"
       chapters: 
         - "contents/usecase/propagate_NA.qmd"
+        - text: Check NA in DF
+          href: "contents/usecase/check-any-NA.qmd"
     - part: "How To"
       chapters: 
       - "contents/howtos/bindrows.ipynb"

@@ -1,0 +1,66 @@
+---
+title: "Checking for NA in Pandas DataFrame"
+---
+
+In pandas, missing values are represented as `NaN` (or `None`). Here are the main approaches:
+
+## Quick Answer: Any NA in Entire DataFrame?
+
+```python
+df.isna().any().any()  # Returns single True/False
+```
+
+## Methods Overview
+
+```python
+import pandas as pd
+import numpy as np
+
+# Sample DataFrame with NA
+df = pd.DataFrame({
+    'A': [1, 2, np.nan],
+    'B': ['x', None, 'z'],
+    'C': [10, 20, 30]
+})
+```
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `df.isna()` | DataFrame of `bool` | Cell-wise check |
+| `df.isna().any()` | Series of `bool` | Any NA **per column** |
+| `df.isna().any().any()` | Single `bool` | Any NA in **entire df** |
+| `df.isna().sum()` | Series of `int` | Count NA **per column** |
+| `df.isna().sum().sum()` | Single `int` | Total NA count |
+
+## Examples
+
+```python
+df.isna()
+#        A      B      C
+# 0  False  False  False
+# 1  False   True  False
+# 2   True  False  False
+
+df.isna().any()
+# A     True
+# B     True
+# C    False
+
+df.isna().any().any()
+# True
+
+df.isna().sum()
+# A    1
+# B    1
+# C    0
+```
+
+## R Tidyverse Comparison
+
+| Task | R | Pandas |
+|------|---|--------|
+| Any NA in df? | `any(is.na(df))` | `df.isna().any().any()` |
+| NA per column | `colSums(is.na(df))` | `df.isna().sum()` |
+
+
+> **Note:** `isna()` and `isnull()` are identical in pandas—use whichever you prefer.
