@@ -1,0 +1,211 @@
+---
+title: "Functional Programming with Pipe"
+---
+
+Coming from R's `purrr`, the biggest mindset shift is this: in pandas, vectorization is the default. Reach for `map()` or `apply()` only when columns cannot be combined directly.
+
+This chapter shows how to write pandas code that keeps the expressive, pipe-friendly shape of tidyverse workflows while staying idiomatic and efficient.
+
+## Core Translation Table
+
+| R / tidyverse / purrr | Python / pandas |
+|---|---|
+| `x %>% f() %>% g()` | `df.pipe(f).pipe(g)` |
+| `mutate(df, y = f(x))` | `df.assign(y=lambda d: f(d["x"]))` |
+| `filter(df, x > 0)` | `df.query("x > 0")` |
+| `map(xs, f)` | `pd.Series(xs).map(f)` or `[f(x) for x in xs]` |
+| `map_dbl(xs, f)` | `pd.Series(xs).map(f).astype(float)` |
+| `map2(x, y, f)` | Prefer `f(df["x"], df["y"])`; otherwise row-wise `apply()` |
+| `pmap(list(a, b, c), f)` | `df.apply(lambda r: f(r["a"], r["b"], r["c"]), axis=1)` |
+| `walk(xs, f)` | `for x in xs: f(x)` |
+
+## The Pipe: `.pipe()` + `.assign()` + `lambda d:`
+
+Two methods do most of the work of `%>%` and `mutate()`:
+
+- `.pipe(f)` passes the whole DataFrame as the first argument to `f`.
+- `.assign(new=...)` returns a new DataFrame with columns added.
+
+The trick that makes chains feel like `dplyr` is using `lambda d:` inside `assign()`. This lets later columns reference earlier columns in the same chain.
+
+```python
+import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "patient_id": [1, 2, 3, 4],
+    "age": [45, 67, 23, 81],
+    "weight_kg": [70, 80, 55, 65],
+    "height_cm": [170, 175, 160, 168],
+})
+
+result = (
+    df
+    .assign(
+        bmi=lambda d: d["weight_kg"] / (d["height_cm"] / 100) ** 2,
+        age_group=lambda d: pd.cut(
+            d["age"],
+            bins=[0, 40, 65, 120],
+            labels=["young", "middle", "old"],
+        ),
+    )
+    .query("bmi > 20")
+    .sort_values("age")
+    .reset_index(drop=True)
+)
+```
+
+This reads almost identically to the R version:
+
+```r
+df |>
+  mutate(
+    bmi = weight_kg / (height_cm / 100)^2,
+    age_group = cut(
+      age,
+      breaks = c(0, 40, 65, 120),
+      labels = c("young", "middle", "old")
+    )
+  ) |>
+  filter(bmi > 20) |>
+  arrange(age)
+```
+
+## `map`: Element-wise Work on a Series
+
+`Series.map()` is the closest direct analog to `purrr::map()` for one-dimensional data.
+
+```python
+s = pd.Series([1, 2, 3, 4])
+
+s.map(lambda x: x ** 2)  # purrr: map_dbl(s, ~ .x^2)
+s ** 2                  # prefer vectorized operations when possible
+```
+
+The vectorized expression is usually clearer and much faster.
+
+Where `.map()` shines is dictionary lookup or recoding.
+
+```python
+group = {1: "A", 2: "B", 3: "A", 4: "C"}
+
+df["patient_id"].map(group)
+```
+
+This is similar in spirit to `purrr::map_chr()` or `dplyr::recode()`.
+
+## `map2` and `pmap`: Multiple Columns
+
+In R, you might write:
+
+```r
+map2_dbl(weight_kg, height_cm, ~ .x / (.y / 100)^2)
+```
+
+In pandas, the idiomatic version is column arithmetic:
+
+```python
+df.assign(
+    bmi=lambda d: d["weight_kg"] / (d["height_cm"] / 100) ** 2
+)
+```
+
+When the logic genuinely needs row-level branching, fall back to `.apply(axis=1)`.
+
+```python
+def classify(row):
+    """Assign clinical risk tier from age and BMI."""
+    if row["age"] >= 65 and row["bmi"] > 30:
+        return "high"
+    if row["age"] >= 65:
+        return "moderate"
+    return "low"
+
+
+df2 = df.assign(
+    bmi=lambda d: d["weight_kg"] / (d["height_cm"] / 100) ** 2,
+    risk=lambda d: d.apply(classify, axis=1),
+)
+```
+
+But before reaching for `apply()`, ask whether the logic can be expressed with `np.select()` or `np.where()`. Vectorized conditionals are usually cleaner and faster.
+
+```python
+df2 = df.assign(
+    bmi=lambda d: d["weight_kg"] / (d["height_cm"] / 100) ** 2,
+    risk=lambda d: np.select(
+        condlist=[
+            (d["age"] >= 65) & (d["bmi"] > 30),
+            d["age"] >= 65,
+        ],
+        choicelist=["high", "moderate"],
+        default="low",
+    ),
+)
+```
+
+## Why Vectorized First Matters
+
+`apply(axis=1)` is a Python loop in disguise. For radiology-scale data, from thousands to millions of rows, the difference adds up quickly.
+
+| Approach | Relative speed for a simple operation |
+|---|---:|
+| Vectorized expression, such as `df["a"] + 1` | 1× |
+| `Series.map(dict)` | 2× |
+| `Series.map(lambda)` | 10–30× |
+| `df.apply(axis=1)` | 50–200× |
+| `df.iterrows()` loop | 500–1000× |
+
+Use row-wise `apply()` only when the function is not expressible as column operations.
+
+## A Full purrr-style Chain
+
+Here is a complete chain that keeps the tidyverse mental shape while using pandas idioms.
+
+```python
+summary = (
+    df
+    .query("age > 18")
+    .assign(
+        bmi=lambda d: d["weight_kg"] / (d["height_cm"] / 100) ** 2,
+        bmi_cat=lambda d: pd.cut(
+            d["bmi"],
+            bins=[0, 18.5, 25, 30, 100],
+            labels=["under", "normal", "over", "obese"],
+        ),
+        risk=lambda d: np.where(
+            (d["age"] > 65) & (d["bmi"] > 30),
+            "high",
+            "low",
+        ),
+    )
+    .groupby("bmi_cat", observed=True)
+    .agg(
+        n=("patient_id", "count"),
+        mean_age=("age", "mean"),
+    )
+    .reset_index()
+)
+```
+
+The mental shape is:
+
+```text
+df
+  ├─ .query(...)          # filter()
+  ├─ .assign(...)         # mutate(), usually with vectorized expressions
+  ├─ .groupby().agg(...)  # group_by() + summarise()
+  └─ .reset_index()       # return to a flat tibble-like DataFrame
+```
+
+## Practical Rule
+
+Use this order of preference:
+
+1. Vectorized column expressions.
+2. `np.where()` or `np.select()` for conditionals.
+3. `Series.map()` for lookup tables or simple one-column mapping.
+4. `.pipe()` for reusable DataFrame-level functions.
+5. `.apply(axis=1)` only when row-wise logic is unavoidable.
+
+That gives you a workflow that feels close to `purrr` and the pipe, while still respecting pandas' performance model.
